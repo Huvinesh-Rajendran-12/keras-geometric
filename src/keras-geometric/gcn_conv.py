@@ -10,7 +10,7 @@ class GCNConv(layers.Layer):
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
 
-        assert self.aggr in ['mean', 'max', 'add'], f"Invalid aggregation method: {self.aggr}. Must be one of ['mean', 'sum', 'add']"
+        assert self.aggr in ['mean', 'max', 'sum'], f"Invalid aggregation method: {self.aggr}. Must be one of ['mean', 'max', 'sum']"
 
     def build(self, input_shape):
         """
@@ -64,7 +64,7 @@ class GCNConv(layers.Layer):
             output = (self_features + neigh_agg) / 2
         elif self.aggr == 'max':
             output = keras.ops.maximum(self_features,neigh_agg)
-        elif self.aggr == 'add':
+        elif self.aggr == 'sum':
             output = keras.ops.add(self_features,neigh_agg)
         else:
             raise ValueError(f"Invalid aggregation method: {self.aggr}")

@@ -13,5 +13,5 @@ class GINConv(MessagePassing):
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
 
-        assert self.aggr in ['mean', 'max', 'add'], f"Invalid aggregation method: {self.aggr}. Must be one of ['mean', 'sum', 'add']"
+        assert self.aggr in ['mean', 'max', 'sum'], f"Invalid aggregation method: {self.aggr}. Must be one of ['mean', 'max', 'sum']"
         
