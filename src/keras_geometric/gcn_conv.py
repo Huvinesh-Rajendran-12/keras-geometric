@@ -17,7 +17,7 @@ class GCNConv(layers.Layer):
         Build the layer weights 
 
         Args:
-            input_shape: [(N, F), (N, N)]
+            input_shape: [(N, F), (N, N)] # features, adjacency
         """
         input_dim = input_shape[0]
         feat_dim = input_dim[-1]

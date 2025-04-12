@@ -1,0 +1,111 @@
+
+import keras
+from keras import layers, initializers, ops
+from .message_passing import MessagePassing
+
+class GINConv(MessagePassing):
+    def __init__(self, 
+             output_dim: int, 
+             mlp_hidden: list[int], 
+             aggr: str = 'mean', 
+             use_bias: bool = True, 
+             kernel_initializer: str = 'glorot_uniform', 
+             bias_initializer: str = 'zeros', 
+             activation: str = 'relu',
+             **kwargs):
+        super(GINConv, self).__init__(aggr=aggr, **kwargs) 
+        self.output_dim = output_dim
+        self.mlp_hidden = mlp_hidden
+        self.aggr = aggr
+        self.use_bias = use_bias
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.activation = activation
+
+        assert self.aggr in ['mean', 'max', 'sum'], f"Invalid aggregation method: {self.aggr}. Must be one of ['mean', 'max', 'sum']"
+
+        self.mlp = None
+
+    def build(self, input_shape):
+        """
+        Build the layer weights 
+
+        Args:
+            input_shape: [(N, F), (2, E)]
+        """
+        input_dim = input_shape[0]
+        if len(input_dim) != 2:
+            raise ValueError(f"Input shape must be (N, F), got {input_dim}")
+        F = input_dim[1]
+
+        mlp_layers = []
+        current_dim = F
+        for h_dim in self.mlp_hidden:
+            mlp_layers.append(
+                layers.Dense(
+                units=h_dim,
+                activation=self.activation,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                use_bias=self.use_bias,
+                name=f"mlp_hidden_{len(mlp_layers) + 1}",
+                ))
+            current_dim = h_dim
+            
+        mlp_layers.append(
+            layers.Dense(
+                units=self.output_dim,
+                activation=None,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                use_bias=self.use_bias,
+                name=f"mlp_output"))
+        self.mlp = keras.Sequential(mlp_layers)
+
+        self.built = True
+
+    def call(self, inputs):
+        """
+        Perform GIN convolution
+
+        Args:
+            inputs: List[features, edge_idx]
+                - features: [N, F]
+                - edge_idx: [2, E]
+        Returns:
+            [N, output_dim]
+        """
+        x, edge_idx = inputs
+
+        aggr_neigh = self.propagate([x, edge_idx])
+
+        # combine self features and aggregated neighbors
+        x = ops.add(x, aggr_neigh)
+        x = self.mlp(x)
+        return x
+
+    def get_config(self):
+        """
+        Serializes the layer configuration
+        """
+        config = super(GINConv, self).get_config()
+        config.update({
+            'output_dim': self.output_dim,
+            'mlp_hidden': self.mlp_hidden,
+            'use_bias': self.use_bias,
+            # serialize initializers and activations
+            'kernel_initializer': self.kernel_initializer,
+            'bias_initializer': self.bias_initializer,
+            'activation': self.activation
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        """
+        Creates a layer from its config.
+        """
+        config['kernel_initializer'] = config['kernel_initializer']
+        config['bias_initializer'] = config['bias_initializer']
+        config['activation'] = config['activation']
+        return cls(**config) 

@@ -4,6 +4,9 @@ import os
 import sys
 import importlib.util
 
+import keras 
+assert keras.backend.backend() == 'torch', "Keras backend must be set to 'torch' for this test."
+
 # Import the MessagePassing implementation from keras-geometric
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 spec = importlib.util.spec_from_file_location(
@@ -18,6 +21,7 @@ MessagePassing = message_passing_module.MessagePassing
 try:
     import torch
     from torch_geometric.nn import MessagePassing as PyGMessagePassing
+    torch.set_default_device('cpu')
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False

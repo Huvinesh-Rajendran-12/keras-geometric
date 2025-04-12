@@ -4,6 +4,9 @@ import numpy as np
 import sys
 import os
 
+# Check if the backend is set to 'torch'
+assert keras.backend.backend() == 'torch', "Keras backend must be set to 'torch' for this test."
+
 # Add the src directory to the path so we can import the module
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
@@ -44,9 +47,9 @@ class TestGCNConv(unittest.TestCase):
         self.assertTrue(gcn.use_bias)
         
         # Test with custom parameters
-        gcn = GCNConv(output_dim=self.output_dim, aggr='add', use_bias=False)
+        gcn = GCNConv(output_dim=self.output_dim, aggr='sum', use_bias=False)
         self.assertEqual(gcn.output_dim, self.output_dim)
-        self.assertEqual(gcn.aggr, 'add')
+        self.assertEqual(gcn.aggr, 'sum')
         self.assertFalse(gcn.use_bias)
         
         # Test with invalid aggregation method
@@ -69,7 +72,7 @@ class TestGCNConv(unittest.TestCase):
         self.assertEqual(output_max.shape, (self.num_nodes, self.output_dim))
         
         # Test with add aggregation
-        gcn_add = GCNConv(output_dim=self.output_dim, aggr='add')
+        gcn_add = GCNConv(output_dim=self.output_dim, aggr='sum')
         output_add = gcn_add([self.features, self.adjacency])
         self.assertEqual(output_add.shape, (self.num_nodes, self.output_dim))
         
@@ -80,7 +83,7 @@ class TestGCNConv(unittest.TestCase):
 
     def test_get_config(self):
         """Test get_config method"""
-        gcn = GCNConv(output_dim=self.output_dim, aggr='add', use_bias=False)
+        gcn = GCNConv(output_dim=self.output_dim, aggr='sum', use_bias=False)
         config = gcn.get_config()
         
         # Check that all the necessary keys are in the config
@@ -92,7 +95,7 @@ class TestGCNConv(unittest.TestCase):
         
         # Check values
         self.assertEqual(config['output_dim'], self.output_dim)
-        self.assertEqual(config['aggr'], 'add')
+        self.assertEqual(config['aggr'], 'sum')
         self.assertEqual(config['use_bias'], False)
 
 if __name__ == '__main__':
