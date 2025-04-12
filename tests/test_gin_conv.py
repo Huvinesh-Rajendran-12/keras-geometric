@@ -18,7 +18,7 @@ try:
 except Exception:
      print("Warning: Could not determine Keras backend.")
 
-from keras import Sequential, layers, initializers
+from keras import layers
 
 # --- Add src directory to path ---
 SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
