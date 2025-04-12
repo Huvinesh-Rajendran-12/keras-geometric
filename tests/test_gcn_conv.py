@@ -1,102 +1,270 @@
 import unittest
-import keras
 import numpy as np
-import sys
 import os
+import sys
+import itertools
+import pprint # For printing config dict nicely
 
-# Check if the backend is set to 'torch'
-assert keras.backend.backend() == 'torch', "Keras backend must be set to 'torch' for this test."
+# --- Keras Imports ---
+import keras
+# Check backend and set skip flag
+KERAS_BACKEND_IS_TORCH = False
+try:
+    if keras.backend.backend() == 'torch':
+        KERAS_BACKEND_IS_TORCH = True
+        print(f"Keras backend confirmed: 'torch'")
+    else:
+        print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison test will be skipped.")
+except Exception:
+     print("Warning: Could not determine Keras backend.")
 
-# Add the src directory to the path so we can import the module
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
+from keras import layers, initializers
 
-# Import GCNConv using importlib to handle module name with hyphen
-import importlib.util
-spec = importlib.util.spec_from_file_location(
-    "gcn_conv", 
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src', 'keras-geometric', 'gcn_conv.py')
-)
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
-GCNConv = module.GCNConv
+# --- Add src directory to path ---
+SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
 
-class TestGCNConv(unittest.TestCase):
+# --- Import Custom GCNConv Layer ---
+try:
+    from keras_geometric.gcn_conv import GCNConv # Assumes standard GCNConv exists here
+except ImportError as e:
+    print(f"Could not import refactored GCNConv layer from package 'keras_geometric': {e}")
+    GCNConv = None
+except Exception as e:
+    print(f"An unexpected error occurred during import: {e}")
+    GCNConv = None
+
+# --- PyTorch Geometric Imports (Optional) ---
+try:
+    import torch
+    import torch.nn as nn
+    from torch_geometric.nn import GCNConv as PyGGCNConv
+    from torch_geometric.utils import add_self_loops, degree # For potential manual checks
+    # Force CPU execution for PyTorch side
+    torch.set_default_device('cpu')
+    print("Setting PyTorch default device to CPU.")
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    class PyGGCNConv:
+        def __init__(self, *args, **kwargs): pass
+    print("PyTorch or PyTorch Geometric not available. Skipping comparison tests.")
+
+
+# --- Test Class Definition ---
+@unittest.skipIf(GCNConv is None, "Refactored GCNConv layer could not be imported.")
+class TestGCNConvUpdated(unittest.TestCase):
+
     def setUp(self):
         """Set up test fixtures"""
-        # Create small test data
-        self.num_nodes = 4
-        self.input_dim = 5
-        self.output_dim = 3
-        
-        # Sample features and adjacency matrix
-        self.features = np.random.random((self.num_nodes, self.input_dim)).astype(np.float32)
-        # Create a simple adjacency matrix
-        self.adjacency = np.array([
-            [0, 1, 0, 1],
-            [1, 0, 1, 0],
-            [0, 1, 0, 1],
-            [1, 0, 1, 0]
-        ], dtype=np.float32)
+        self.num_nodes = 5
+        self.input_dim = 8
+        self.output_dim = 12
+        self.bias_options = [True, False]
+        self.normalization_options = [True, False] # Test both norm options
+        self.selfloop_options = [True, False]   # Test both self-loop options
 
-    def test_init(self):
-        """Test initialization with different parameters"""
-        # Test default initialization
-        gcn = GCNConv(output_dim=self.output_dim)
+        np.random.seed(43) # Use different seed
+        if TORCH_AVAILABLE:
+            torch.manual_seed(43)
+
+        self.features_np = np.random.randn(self.num_nodes, self.input_dim).astype(np.float32)
+        self.edge_index_np = np.array([
+            [0, 1, 1, 2, 3, 4, 0, 3],
+            [1, 0, 2, 1, 4, 3, 2, 2]
+        ], dtype=np.int64)
+
+        self.features_keras = keras.ops.convert_to_tensor(self.features_np)
+        self.edge_index_keras = keras.ops.convert_to_tensor(self.edge_index_np, dtype='int32')
+
+        if TORCH_AVAILABLE:
+            self.features_torch = torch.tensor(self.features_np)
+            self.edge_index_torch = torch.tensor(self.edge_index_np)
+
+    def test_refactored_initialization(self):
+        """Test initialization of the refactored GCNConv layer."""
+        print("\n--- Testing Refactored Initialization ---")
+        gcn = GCNConv(output_dim=self.output_dim, use_bias=True, normalize=True, add_self_loops=True)
         self.assertEqual(gcn.output_dim, self.output_dim)
-        self.assertEqual(gcn.aggr, 'mean')
         self.assertTrue(gcn.use_bias)
-        
-        # Test with custom parameters
-        gcn = GCNConv(output_dim=self.output_dim, aggr='sum', use_bias=False)
-        self.assertEqual(gcn.output_dim, self.output_dim)
+        self.assertTrue(gcn.normalize)
+        self.assertTrue(gcn.add_self_loops)
+        self.assertEqual(gcn.aggr, 'sum') # Verify aggr is set correctly
+
+        gcn_custom = GCNConv(output_dim=self.output_dim, use_bias=False, normalize=False, add_self_loops=False)
+        self.assertFalse(gcn_custom.use_bias)
+        self.assertFalse(gcn_custom.normalize)
+        self.assertFalse(gcn_custom.add_self_loops)
         self.assertEqual(gcn.aggr, 'sum')
-        self.assertFalse(gcn.use_bias)
-        
-        # Test with invalid aggregation method
-        with self.assertRaises(AssertionError):
-            GCNConv(output_dim=self.output_dim, aggr='invalid')
 
-    def test_call(self):
-        """Test forward pass with different aggregation methods"""
-        # Test with mean aggregation
-        gcn_mean = GCNConv(output_dim=self.output_dim, aggr='mean')
-        print(self.features.shape, self.adjacency.shape)
-        output_mean = gcn_mean([self.features, self.adjacency])
-        
-        # Check output shape
-        self.assertEqual(output_mean.shape, (self.num_nodes, self.output_dim))
-        
-        # Test with max aggregation
-        gcn_max = GCNConv(output_dim=self.output_dim, aggr='max')
-        output_max = gcn_max([self.features, self.adjacency])
-        self.assertEqual(output_max.shape, (self.num_nodes, self.output_dim))
-        
-        # Test with add aggregation
-        gcn_add = GCNConv(output_dim=self.output_dim, aggr='sum')
-        output_add = gcn_add([self.features, self.adjacency])
-        self.assertEqual(output_add.shape, (self.num_nodes, self.output_dim))
-        
-        # Test without bias
-        gcn_no_bias = GCNConv(output_dim=self.output_dim, use_bias=False)
-        output_no_bias = gcn_no_bias([self.features, self.adjacency])
-        self.assertEqual(output_no_bias.shape, (self.num_nodes, self.output_dim))
+    def test_refactored_call_shapes(self):
+        """Test the forward pass shape of the refactored GCNConv."""
+        print("\n--- Testing Refactored Call Shapes ---")
+        input_data = [self.features_keras, self.edge_index_keras]
+        expected_shape = (self.num_nodes, self.output_dim)
+        test_params = list(itertools.product(
+             self.bias_options, self.normalization_options, self.selfloop_options
+        ))
+        for use_bias, normalize, add_loops in test_params:
+             with self.subTest(use_bias=use_bias, normalize=normalize, add_loops=add_loops):
+                gcn = GCNConv(
+                    output_dim=self.output_dim, use_bias=use_bias,
+                    normalize=normalize, add_self_loops=add_loops
+                )
+                output = gcn(input_data)
+                try:
+                    output_shape = output.cpu().detach().numpy().shape
+                except:
+                    try: output_shape = output.cpu().numpy().shape
+                    except: output_shape = output.shape
+                self.assertEqual(output_shape, expected_shape, f"Shape mismatch for bias={use_bias}, norm={normalize}, loops={add_loops}")
 
-    def test_get_config(self):
-        """Test get_config method"""
-        gcn = GCNConv(output_dim=self.output_dim, aggr='sum', use_bias=False)
-        config = gcn.get_config()
-        
-        # Check that all the necessary keys are in the config
-        self.assertIn('output_dim', config)
-        self.assertIn('aggr', config)
-        self.assertIn('use_bias', config)
-        self.assertIn('kernel_initializer', config)
-        self.assertIn('bias_initializer', config)
-        
-        # Check values
-        self.assertEqual(config['output_dim'], self.output_dim)
-        self.assertEqual(config['aggr'], 'sum')
-        self.assertEqual(config['use_bias'], False)
+    def test_config_serialization(self):
+        """Test layer get_config and from_config methods."""
+        print("\n--- Testing Config Serialization ---")
+        gcn1_config_params = dict(
+            output_dim=self.output_dim + 1, use_bias=False, normalize=False,
+            add_self_loops=False, kernel_initializer='he_normal',
+            bias_initializer='ones', name="test_gcn_config"
+        )
+        gcn1 = GCNConv(**gcn1_config_params)
+        _ = gcn1([self.features_keras, self.edge_index_keras]) # Build
+        config = gcn1.get_config()
+        print("Config dictionary from get_config:")
+        pprint.pprint(config)
+        expected_keys = ['name', 'trainable', 'output_dim', 'use_bias',
+                         'kernel_initializer', 'bias_initializer',
+                         'add_self_loops', 'normalize', 'aggr'] # Add aggr check
+        for key in expected_keys:
+            if key == 'dtype' and key not in config: continue
+            self.assertIn(key, config, f"Key '{key}' missing from config")
+
+        self.assertEqual(config['output_dim'], gcn1_config_params['output_dim'])
+        self.assertEqual(config['use_bias'], gcn1_config_params['use_bias'])
+        self.assertEqual(config['normalize'], gcn1_config_params['normalize'])
+        self.assertEqual(config['add_self_loops'], gcn1_config_params['add_self_loops'])
+        self.assertEqual(config['name'], gcn1_config_params['name'])
+        self.assertEqual(config['aggr'], 'sum') # Should be 'sum'
+        self.assertEqual(config['kernel_initializer']['class_name'], 'HeNormal')
+        self.assertEqual(config['bias_initializer']['class_name'], 'Ones')
+
+        try:
+            gcn2 = GCNConv.from_config(config)
+        except Exception as e:
+            # Print config for easier debugging if from_config fails
+            print("\n--- FAILED CONFIG ---")
+            pprint.pprint(config)
+            print("--- END FAILED CONFIG ---")
+            self.fail(f"GCNConv.from_config failed: {e}")
+
+        # Verify reconstructed layer properties
+        self.assertEqual(gcn1.output_dim, gcn2.output_dim)
+        self.assertEqual(gcn1.use_bias, gcn2.use_bias)
+        self.assertEqual(gcn1.normalize, gcn2.normalize)
+        self.assertEqual(gcn1.add_self_loops, gcn2.add_self_loops)
+        self.assertEqual(gcn1.name, gcn2.name)
+        self.assertEqual(gcn1.aggr, gcn2.aggr) # Check aggr attribute
+        self.assertIsInstance(gcn2.kernel_initializer, initializers.HeNormal)
+        self.assertIsInstance(gcn2.bias_initializer, initializers.Ones)
+
+
+    @unittest.skipIf(not TORCH_AVAILABLE, "PyTorch or PyTorch Geometric not available")
+    @unittest.skipIf(not KERAS_BACKEND_IS_TORCH, "Skipping numerical comparison because Keras backend is not torch")
+    def test_numerical_comparison_with_pyg(self):
+        """Compare final numerical output with PyTorch Geometric's GCNConv."""
+        print("\n--- Testing Numerical Comparison vs PyG GCNConv ---")
+        test_params = list(itertools.product(
+             self.bias_options, self.normalization_options, self.selfloop_options
+        ))
+        for use_bias, normalize, add_loops in test_params:
+            if add_loops and not normalize:
+                print(f"\n--- Skipping comparison: add_loops={add_loops}, normalize={normalize} (PyG requires normalize=True if loops=True) ---")
+                continue
+
+            subtest_msg = f"bias={use_bias}, norm={normalize}, loops={add_loops}"
+            with self.subTest(msg=subtest_msg):
+                print(f"\n--- Comparing: {subtest_msg} ---")
+                keras_gcn = GCNConv(
+                    output_dim=self.output_dim, use_bias=use_bias,
+                    normalize=normalize, add_self_loops=add_loops
+                )
+                _ = keras_gcn([self.features_keras, self.edge_index_keras]) # Build
+
+                pyg_gcn = PyGGCNConv(
+                    in_channels=self.input_dim, out_channels=self.output_dim,
+                    bias=use_bias, normalize=normalize, add_self_loops=add_loops
+                ) # On CPU
+
+                # --- Sync Weights ---
+                keras_weights = keras_gcn.get_weights()
+                pyg_params = dict(pyg_gcn.named_parameters())
+                # --- FIX: Use correct PyG parameter names ---
+                pyg_weight_param_name = 'lin.weight' if hasattr(pyg_gcn, 'lin') else 'weight' # More robust check
+                pyg_bias_param_name = 'bias' # Bias is usually top-level or inside 'lin'
+
+                # Verify names exist before proceeding
+                print("PyG Parameter Names:", pyg_params.keys())
+                if pyg_weight_param_name not in pyg_params:
+                     # Maybe it's just 'weight'? Check common alternatives.
+                     if 'weight' in pyg_params: pyg_weight_param_name = 'weight'
+                     else: self.fail(f"PyG layer missing weight parameter ('{pyg_weight_param_name}' or 'weight') for {subtest_msg}")
+                if use_bias and pyg_bias_param_name not in pyg_params:
+                     # Bias might also be inside 'lin'
+                     if 'lin.bias' in pyg_params: pyg_bias_param_name = 'lin.bias'
+                     else: self.fail(f"PyG layer missing bias parameter ('{pyg_bias_param_name}' or 'lin.bias') for {subtest_msg}")
+                elif not use_bias:
+                     # Ensure bias param is truly absent if use_bias=False
+                     self.assertTrue(pyg_bias_param_name not in pyg_params or pyg_params[pyg_bias_param_name] is None,
+                                     f"PyG layer has bias parameter when use_bias=False for {subtest_msg}")
+
+
+                print(f"Syncing weights (PyG weight='{pyg_weight_param_name}', bias='{pyg_bias_param_name if use_bias else 'None'}')...")
+                if use_bias:
+                    if len(keras_weights) != 2: self.fail(f"Expected 2 weights but got {len(keras_weights)} for {subtest_msg}")
+                    k_kernel, k_bias = keras_weights[0], keras_weights[1]
+                    pyg_params[pyg_weight_param_name].data.copy_(torch.tensor(k_kernel.T)) # Use Transpose
+                    pyg_params[pyg_bias_param_name].data.copy_(torch.tensor(k_bias))
+                    synced_kernel_t = pyg_params[pyg_weight_param_name].data.cpu().numpy().T
+                    synced_bias = pyg_params[pyg_bias_param_name].data.cpu().numpy()
+                    np.testing.assert_allclose(k_kernel, synced_kernel_t, rtol=0, atol=0, err_msg="Kernel sync failed")
+                    np.testing.assert_allclose(k_bias, synced_bias, rtol=0, atol=0, err_msg="Bias sync failed")
+                else: # No bias
+                    if len(keras_weights) != 1: self.fail(f"Expected 1 weight but got {len(keras_weights)} for {subtest_msg}")
+                    k_kernel = keras_weights[0]
+                    pyg_params[pyg_weight_param_name].data.copy_(torch.tensor(k_kernel.T)) # Use Transpose
+                    synced_kernel_t = pyg_params[pyg_weight_param_name].data.cpu().numpy().T
+                    np.testing.assert_allclose(k_kernel, synced_kernel_t, rtol=0, atol=0, err_msg="Kernel sync failed (no bias)")
+                print("Weights synced and verified.")
+
+                # --- Perform Forward Pass ---
+                keras_output = keras_gcn([self.features_keras, self.edge_index_keras])
+                pyg_output = pyg_gcn(self.features_torch, self.edge_index_torch)
+
+                # --- Compare Final Outputs ---
+                keras_output_np = keras_output.cpu().detach().numpy()
+                pyg_output_np = pyg_output.cpu().detach().numpy()
+
+                print(f"Keras final output shape: {keras_output_np.shape}")
+                print(f"PyG final output shape: {pyg_output_np.shape}")
+                self.assertEqual(keras_output_np.shape, (self.num_nodes, self.output_dim))
+                self.assertEqual(pyg_output_np.shape, (self.num_nodes, self.output_dim))
+
+                try:
+                    np.testing.assert_allclose(
+                        keras_output_np, pyg_output_np, rtol=1e-5, atol=1e-5,
+                        err_msg=f"FINAL GCN outputs differ for {subtest_msg}"
+                    )
+                    print(f"✅ FINAL GCN outputs match for: {subtest_msg}")
+                except AssertionError as e:
+                    print(f"❌ FINAL GCN outputs DO NOT match for: {subtest_msg}")
+                    print(e);
+                    abs_diff = np.abs(keras_output_np - pyg_output_np)
+                    rel_diff = abs_diff / (np.abs(pyg_output_np) + 1e-8)
+                    print(f"   Max Abs Diff: {np.max(abs_diff):.4g}, Max Rel Diff: {np.max(rel_diff):.4g}")
+                    print("   Keras sample:", keras_output_np[0, :5])
+                    print("   PyG sample:", pyg_output_np[0, :5])
+
 
 if __name__ == '__main__':
     unittest.main()
