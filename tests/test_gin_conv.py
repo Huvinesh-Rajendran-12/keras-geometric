@@ -2,13 +2,12 @@ import unittest
 import numpy as np
 import os
 import sys
-import itertools # For parameterizing tests
+import itertools
 import pprint
 
 # --- Keras/TensorFlow Imports ---
 import keras
 # Check if the backend is set to 'torch'
-# Allow skipping if backend is not torch, instead of hard assertion error
 KERAS_BACKEND_IS_TORCH = False
 try:
     if keras.backend.backend() == 'torch':
@@ -16,7 +15,7 @@ try:
         print(f"Keras backend confirmed: 'torch'")
     else:
         print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison tests might fail.")
-except Exception: # Handle cases where backend check might fail
+except Exception:
      print("Warning: Could not determine Keras backend.")
 
 from keras import Sequential, layers, initializers
@@ -28,9 +27,8 @@ if SRC_DIR not in sys.path:
 
 # --- Import Custom GINConv Layer ---
 try:
-    # Assuming the user has fixed the issues in their gin_conv.py
-    from keras_geometric.gin_conv import GINConv
-    from keras_geometric.message_passing import MessagePassing # Base class might be needed
+    from keras_geometric.layers.gin_conv import GINConv
+    from keras_geometric.layers.message_passing import MessagePassing
 except ImportError as e:
     print(f"Could not import from package 'keras_geometric': {e}")
     GINConv = None

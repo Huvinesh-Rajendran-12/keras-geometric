@@ -3,18 +3,17 @@ import numpy as np
 import os
 import sys
 import itertools
-import pprint # For printing config dict nicely
+import pprint
 
 # --- Keras Imports ---
 import keras
-# Check backend and set skip flag
 KERAS_BACKEND_IS_TORCH = False
 try:
     if keras.backend.backend() == 'torch':
         KERAS_BACKEND_IS_TORCH = True
         print(f"Keras backend confirmed: 'torch'")
     else:
-        print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison test will be skipped.")
+        print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison tests will be skipped.")
 except Exception:
      print("Warning: Could not determine Keras backend.")
 
@@ -27,9 +26,10 @@ if SRC_DIR not in sys.path:
 
 # --- Import Custom GCNConv Layer ---
 try:
-    from keras_geometric.gcn_conv import GCNConv # Assumes standard GCNConv exists here
+    from keras_geometric.layers.gcn_conv import GCNConv
+    from keras_geometric.layers.message_passing import MessagePassing
 except ImportError as e:
-    print(f"Could not import refactored GCNConv layer from package 'keras_geometric': {e}")
+    print(f"Could not import from package 'keras_geometric': {e}")
     GCNConv = None
 except Exception as e:
     print(f"An unexpected error occurred during import: {e}")
@@ -38,10 +38,7 @@ except Exception as e:
 # --- PyTorch Geometric Imports (Optional) ---
 try:
     import torch
-    import torch.nn as nn
     from torch_geometric.nn import GCNConv as PyGGCNConv
-    from torch_geometric.utils import add_self_loops, degree # For potential manual checks
-    # Force CPU execution for PyTorch side
     torch.set_default_device('cpu')
     print("Setting PyTorch default device to CPU.")
     TORCH_AVAILABLE = True
@@ -51,28 +48,26 @@ except ImportError:
         def __init__(self, *args, **kwargs): pass
     print("PyTorch or PyTorch Geometric not available. Skipping comparison tests.")
 
-
-# --- Test Class Definition ---
-@unittest.skipIf(GCNConv is None, "Refactored GCNConv layer could not be imported.")
-class TestGCNConvUpdated(unittest.TestCase):
-
+@unittest.skipIf(GCNConv is None, "GCNConv layer could not be imported.")
+class TestGCNConvComprehensive(unittest.TestCase):
+    
     def setUp(self):
         """Set up test fixtures"""
-        self.num_nodes = 5
-        self.input_dim = 8
-        self.output_dim = 12
+        self.num_nodes = 7  # Use more nodes for better testing
+        self.input_dim = 10
+        self.output_dim = 15
         self.bias_options = [True, False]
-        self.normalization_options = [True, False] # Test both norm options
-        self.selfloop_options = [True, False]   # Test both self-loop options
+        self.normalization_options = [True, False]
+        self.selfloop_options = [True, False]
 
-        np.random.seed(43) # Use different seed
+        np.random.seed(42)
         if TORCH_AVAILABLE:
-            torch.manual_seed(43)
+            torch.manual_seed(42)
 
         self.features_np = np.random.randn(self.num_nodes, self.input_dim).astype(np.float32)
         self.edge_index_np = np.array([
-            [0, 1, 1, 2, 3, 4, 0, 3],
-            [1, 0, 2, 1, 4, 3, 2, 2]
+            [0, 1, 1, 2, 3, 4, 4, 5, 0, 3, 6, 5, 1],
+            [1, 0, 2, 1, 4, 3, 5, 4, 2, 5, 5, 6, 6]
         ], dtype=np.int64)
 
         self.features_keras = keras.ops.convert_to_tensor(self.features_np)
