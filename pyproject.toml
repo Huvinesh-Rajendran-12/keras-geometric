@@ -1,9 +1,72 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
 [project]
 name = "keras-geometric"
-version = "0.1.0"
-description = "Add your description here"
+dynamic = ["version"]
+description = "A Keras library for Graph Neural Networks, including GCN and GIN layers." # Update description
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "keras>=3.9.0",
+requires-python = ">=3.9" # Specify compatible Python versions
+license = { file = "LICENSE" } # Or use identifier: license = { text = "MIT" }
+authors = [
+    { name = "Your Name", email = "your.email@example.com" },
 ]
+keywords = ["keras", "graph neural network", "gnn", "gcn", "gin", "geometric"]
+classifiers = [ # Find classifiers at https://pypi.org/classifiers/
+    "Development Status :: 3 - Alpha", # Adjust as appropriate
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License", # Match your license
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# --- Dependencies ---
+dependencies = [
+    "keras>=3.0", # Specify your Keras version requirement
+    # Add other core dependencies, e.g., numpy
+    # "numpy>=1.20",
+    # Avoid adding tensorflow/torch/jax directly unless absolutely required
+    # Keras 3 handles backend selection.
+]
+
+# --- Optional Dependencies ---
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "torch",        # Needed for PyG comparison tests
+    "torch-scatter",# Needed for PyG comparison tests
+    "torch-geometric", # Needed for PyG comparison tests
+]
+dev = ["keras-geometric[test]", "twine", "build", "hatch-vcs"] # Include test deps, twine for upload, build, hatch-vcs
+
+# --- Project URLs ---
+[project.urls]
+Homepage = "https://gitlab.com/ai432809/keras-geometric" # Link to your GitLab repo
+Repository = "https://gitlab.com/ai432809/keras-geometric"
+
+
+# --- Hatch Build Configuration (using hatchling) ---
+[tool.hatch.version]
+# Use hatch-vcs to get version from Git tags
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+# Include/exclude files for the source distribution
+include = [
+    "/src",
+    "/pyproject.toml",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.hatch.build.targets.wheel]
+# Include only the source code needed for the wheel
+packages = ["src/keras_geometric"]

@@ -1,0 +1,25 @@
+image: python:3.12
+
+stages:
+  - test
+  - deploy
+
+before_script:
+  - python -V
+  - pip install pytest
+
+test:
+  stage: test
+  script:
+    - pytest tests/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+deploy_to_main:
+  stage: deploy
+  script:
+    - echo "Merging into main branch..."
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: on_success
+  environment: production
