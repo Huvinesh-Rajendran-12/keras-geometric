@@ -21,6 +21,13 @@ if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 # --- Import MessagePassing Base Class ---
+"""
+Attempt to import the MessagePassing base class from the keras_geometric layers module.
+
+This import is wrapped in a try-except block to handle potential import errors,
+allowing the test suite to gracefully handle scenarios where the module might
+not be available or cannot be imported.
+"""
 try:
     from keras_geometric.layers.message_passing import MessagePassing
 except ImportError as e:

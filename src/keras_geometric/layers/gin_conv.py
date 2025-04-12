@@ -4,15 +4,38 @@ from keras import layers, initializers, ops
 from .message_passing import MessagePassing
 
 class GINConv(MessagePassing):
+    """
+    Graph Isomorphism Network (GIN) Convolution Layer.
+    
+    This layer implements the Graph Isomorphism Network (GIN) convolution operation,
+    which allows for powerful graph representation learning. It aggregates node 
+    features using a specified aggregation method and transforms them through a 
+    multi-layer perceptron (MLP).
+    
+    Args:
+        output_dim (int): Dimensionality of the output features.
+        mlp_hidden (list[int]): List of hidden layer dimensions for the MLP.
+        aggr (str, optional): Aggregation method. Defaults to 'mean'.
+            Must be one of ['mean', 'max', 'sum'].
+        use_bias (bool, optional): Whether to use bias in dense layers. Defaults to True.
+        kernel_initializer (str, optional): Initializer for kernel weights. 
+            Defaults to 'glorot_uniform'.
+        bias_initializer (str, optional): Initializer for bias weights. 
+            Defaults to 'zeros'.
+        activation (str, optional): Activation function for hidden layers. 
+            Defaults to 'relu'.
+    
+    Inherits from MessagePassing layer for graph convolution operations.
+    """
     def __init__(self, 
-             output_dim: int, 
-             mlp_hidden: list[int], 
-             aggr: str = 'mean', 
-             use_bias: bool = True, 
-             kernel_initializer: str = 'glorot_uniform', 
-             bias_initializer: str = 'zeros', 
-             activation: str = 'relu',
-             **kwargs):
+            output_dim: int, 
+            mlp_hidden: list[int], 
+            aggr: str = 'mean', 
+            use_bias: bool = True, 
+            kernel_initializer: str = 'glorot_uniform', 
+            bias_initializer: str = 'zeros', 
+            activation: str = 'relu',
+            **kwargs):
         super(GINConv, self).__init__(aggr=aggr, **kwargs) 
         self.output_dim = output_dim
         self.mlp_hidden = mlp_hidden
