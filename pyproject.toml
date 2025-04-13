@@ -2,43 +2,15 @@
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[build-system]
-requires = ["hatchling", "hatch-vcs"]
-build-backend = "hatchling.build"
-
 [project]
 name = "keras-geometric"
+description = "A Python package for building and training graph neural networks using Keras."
 dynamic = ["version"]
-description = "A Keras library for Graph Neural Networks, including GCN and GIN layers." # Update description
-dynamic = ["version"]
-description = "A Keras library for Graph Neural Networks, including GCN and GIN layers." # Update description
 readme = "README.md"
 requires-python = ">=3.9" # Specify compatible Python versions
 license = { file = "LICENSE" } # Or use identifier: license = { text = "MIT" }
 authors = [
-    { name = "Your Name", email = "your.email@example.com" },
-]
-keywords = ["keras", "graph neural network", "gnn", "gcn", "gin", "geometric"]
-classifiers = [ # Find classifiers at https://pypi.org/classifiers/
-    "Development Status :: 3 - Alpha", # Adjust as appropriate
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License", # Match your license
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-]
-
-# --- Dependencies ---
-requires-python = ">=3.9" # Specify compatible Python versions
-license = { file = "LICENSE" } # Or use identifier: license = { text = "MIT" }
-authors = [
-    { name = "Your Name", email = "your.email@example.com" },
+    { name = "Huvinesh", email = "huvineshrajendran@gmail.com" },
 ]
 keywords = ["keras", "graph neural network", "gnn", "gcn", "gin", "geometric"]
 classifiers = [ # Find classifiers at https://pypi.org/classifiers/
@@ -95,10 +67,6 @@ include = [
     "/README.md",
     "/LICENSE",
 ]
-
-[tool.hatch.build.targets.wheel]
-# Include only the source code needed for the wheel
-packages = ["src/keras_geometric"]
 
 [tool.hatch.build.targets.wheel]
 # Include only the source code needed for the wheel
