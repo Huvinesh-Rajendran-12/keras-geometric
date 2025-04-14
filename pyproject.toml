@@ -30,20 +30,19 @@ classifiers = [ # Find classifiers at https://pypi.org/classifiers/
 
 # --- Dependencies ---
 dependencies = [
-    "keras>=3.0", # Specify your Keras version requirement
-    # Add other core dependencies, e.g., numpy
-    # "numpy>=1.20",
-    # Avoid adding tensorflow/torch/jax directly unless absolutely required
-    # Keras 3 handles backend selection.
+    "keras>=3.0", #backend agnostic keras
+    "numpy>=2.0.2", # Specify your numpy version requirement
 ]
 
 # --- Optional Dependencies ---
 [project.optional-dependencies]
 test = [
     "pytest",
-    "torch",        # Needed for PyG comparison tests
-    "torch-scatter",# Needed for PyG comparison tests
+    "torch", # Needed for PyG comparison tests
     "torch-geometric", # Needed for PyG comparison tests
+    "tensorflow",
+    "tensorflow-metal",
+    "jax"
 ]
 dev = ["keras-geometric[test]", "twine", "build", "hatch-vcs"] # Include test deps, twine for upload, build, hatch-vcs
 

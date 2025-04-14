@@ -1,9 +1,9 @@
 import keras
-from keras import layers, initializers, ops
+from keras import initializers, ops
 # import tensorflow as tf # No longer needed
 
 # Assuming MessagePassing is in the same directory or package
-from keras_geometric.layers.message_passing import MessagePassing
+from .message_passing import MessagePassing
 from keras_geometric.utils.main import add_self_loops, compute_gcn_normalization
 
 
@@ -34,7 +34,7 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
     def __init__(self,
                  output_dim: int,
                  use_bias: bool = True,
-                 kernel_initializer = 'glorot_uniform',
+                 kernel_initializer: str = 'glorot_uniform',
                  bias_initializer = 'zeros',
                  add_self_loops: bool = True,
                  normalize: bool = True,
@@ -57,8 +57,8 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
 
         self.output_dim = output_dim
         self.use_bias = use_bias
-        self.kernel_initializer = initializers.get(kernel_initializer)
-        self.bias_initializer = initializers.get(bias_initializer)
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
         self.add_self_loops = add_self_loops
         self.normalize = normalize
 
@@ -90,18 +90,6 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
             self.bias = None
         self.built = True
 
-    def aggregate(self, messages, target_idx, num_nodes):
-        """
-        Overrides base aggregate to use keras.ops.segment_sum with num_segments.
-        GCN uses 'add' aggregation.
-        """
-        aggregated = ops.segment_sum(
-            data=messages,
-            segment_ids=target_idx,
-            num_segments=num_nodes
-        )
-        return aggregated
-
     def update(self, aggregated_features):
         """Overrides base update to add bias."""
         if self.use_bias:
@@ -111,13 +99,13 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
 
     def propagate(self, x, edge_index, edge_weight):
         """Custom propagation for GCN using MessagePassing structure."""
-        num_nodes = ops.shape(x)[0]
+        N = ops.shape(x)[0]
         x_transformed = ops.matmul(x, self.kernel)
         source_node_indices = edge_index[0]
         target_node_indices = edge_index[1]
         source_features = ops.take(x_transformed, source_node_indices, axis=0)
         messages = source_features * edge_weight[:, None]
-        aggregated = self.aggregate(messages, target_node_indices, num_nodes=num_nodes)
+        aggregated = self.aggregate(messages, target_node_indices, num_nodes=N)
         updated = self.update(aggregated)
         return updated
 
@@ -125,6 +113,7 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
         """Performs the GCN convolution using the MessagePassing structure."""
         x, edge_index = inputs
         num_nodes = ops.shape(x)[0]
+        edge_index = ops.cast(edge_index, dtype='int32')
 
         if self.add_self_loops:
             edge_index_effective = add_self_loops(edge_index, num_nodes)
@@ -147,8 +136,8 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
         config.update({
             'output_dim': self.output_dim,
             'use_bias': self.use_bias,
-            'kernel_initializer': initializers.serialize(self.kernel_initializer),
-            'bias_initializer': initializers.serialize(self.bias_initializer),
+            'kernel_initializer': self.kernel_initializer,
+            'bias_initializer': self.bias_initializer,
             'add_self_loops': self.add_self_loops,
             'normalize': self.normalize
         })
@@ -160,11 +149,7 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
     @classmethod
     def from_config(cls, config):
         """Creates a layer from its config."""
-        # Deserialize initializers before passing to __init__
-        config['kernel_initializer'] = initializers.deserialize(config['kernel_initializer'])
-        config['bias_initializer'] = initializers.deserialize(config['bias_initializer'])
-        # Ensure 'aggr' from config doesn't cause issues if __init__ overrides it.
-        # Best practice: __init__ should respect config values when deserializing.
-        # The fixed __init__ handles 'aggr' from kwargs correctly now.
+        config['kernel_initializer'] = config['kernel_initializer']
+        config['bias_initializer'] = config['bias_initializer']
         return cls(**config)
 

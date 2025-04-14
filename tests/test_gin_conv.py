@@ -40,7 +40,6 @@ except Exception as e:
 try:
     import torch
     import torch.nn as nn
-    import torch_scatter
     from torch_geometric.nn import GINConv as PyGGINConv
     # Force CPU execution for PyTorch side for consistent comparison
     torch.set_default_device('cpu')
