@@ -35,4 +35,5 @@ repos:
         language: system
         pass_filenames: false
         args: ["tests/test_message_passing.py", "tests/test_gcn_conv.py"]
-        always_run: true
+        always_run: false
+        files: ^(src/keras_geometric|tests)

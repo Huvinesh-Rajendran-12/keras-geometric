@@ -15,7 +15,7 @@ cache:
 # Install uv for all jobs
 before_script:
   - curl -LsSf https://astral.sh/uv/install.sh | sh
-  - export PATH=$PATH:$HOME/.cargo/bin
+  - export PATH=$PATH:$HOME/.local/bin
 
 # Template for Python test jobs
 .test-template:
@@ -32,7 +32,7 @@ test-python39-tensorflow:
   image: python:3.9
   before_script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
 
 test-python39-torch:
@@ -40,7 +40,7 @@ test-python39-torch:
   image: python:3.9
   before_script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install torch torch-geometric "keras>=3.0"
 
 test-python39-jax:
@@ -48,7 +48,7 @@ test-python39-jax:
   image: python:3.9
   before_script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install "jax[cpu]" "keras>=3.0"
 
 test-python310-tensorflow:
@@ -56,7 +56,7 @@ test-python310-tensorflow:
   image: python:3.10
   before_script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
 
 test-python310-torch:
@@ -64,7 +64,7 @@ test-python310-torch:
   image: python:3.10
   before_script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install torch torch-geometric "keras>=3.0"
 
 test-python312:
@@ -72,7 +72,7 @@ test-python312:
   image: python:3.12
   before_script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
 
 # Linting and type checking
@@ -81,7 +81,7 @@ lint:
   image: python:3.9
   script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install flake8 mypy
     - uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
     - uv run mypy src/
@@ -92,7 +92,7 @@ benchmark:
   image: python:3.10
   script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install torch torch-geometric
     - uv pip install tensorflow "keras>=3.0"
     - uv pip install -e ".[test]"
@@ -116,7 +116,7 @@ publish-to-pypi:
   image: python:3.9
   script:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.cargo/bin
+    - export PATH=$PATH:$HOME/.local/bin
     - uv pip install build twine
     - uv run -m build
     - uv run -m twine check dist/*
