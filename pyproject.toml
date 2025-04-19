@@ -19,7 +19,7 @@ classifiers = [ # Find classifiers at https://pypi.org/classifiers/
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License", # Match your license
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
+    # "Programming Language :: Python :: 3.8", # Removed, requires-python is >=3.9
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -31,7 +31,12 @@ classifiers = [ # Find classifiers at https://pypi.org/classifiers/
 # --- Dependencies ---
 dependencies = [
     "keras>=3.0", #backend agnostic keras
-    "numpy>=2.0.2", # Specify your numpy version requirement
+    "numpy>=2.0.2",
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.5", # Specify your numpy version requirement
+    "tensorflow>=2.19.0",
+    "torch>=2.6.0",
+    "torch-geometric>=2.6.1",
 ]
 
 # --- Optional Dependencies ---
@@ -56,7 +61,7 @@ Repository = "https://gitlab.com/ai432809/keras-geometric"
 [tool.hatch.version]
 # Use hatch-vcs to get version from Git tags
 source = "vcs"
-path = "src/keras_geometric/_version.py" 
+path = "src/keras_geometric/_version.py"
 
 [tool.hatch.build.targets.sdist]
 # Include/exclude files for the source distribution

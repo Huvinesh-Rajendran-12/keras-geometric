@@ -1,20 +1,106 @@
-image: python:3.12
-
 stages:
   - test
+  - lint
+  - benchmark
   - deploy
+  - publish
 
+variables:
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+
+cache:
+  paths:
+    - .uv-cache/
+
+# Install uv for all jobs
 before_script:
-  - python -V
-  - pip install pytest
+  - curl -LsSf https://astral.sh/uv/install.sh | sh
+  - export PATH=$PATH:$HOME/.cargo/bin
 
-test:
+# Template for Python test jobs
+.test-template:
   stage: test
   script:
-    - pytest tests/
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - python -V
+    - uv pip install pytest
+    - uv pip install -e ".[test]"
+    - uv run -m pytest tests/
 
+# Test with different Python versions and backends
+test-python39-tensorflow:
+  extends: .test-template
+  image: python:3.9
+  before_script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
+
+test-python39-torch:
+  extends: .test-template
+  image: python:3.9
+  before_script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install torch torch-geometric "keras>=3.0"
+
+test-python39-jax:
+  extends: .test-template
+  image: python:3.9
+  before_script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install "jax[cpu]" "keras>=3.0"
+
+test-python310-tensorflow:
+  extends: .test-template
+  image: python:3.10
+  before_script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
+
+test-python310-torch:
+  extends: .test-template
+  image: python:3.10
+  before_script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install torch torch-geometric "keras>=3.0"
+
+test-python312:
+  extends: .test-template
+  image: python:3.12
+  before_script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
+
+# Linting and type checking
+lint:
+  stage: lint
+  image: python:3.9
+  script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install flake8 mypy
+    - uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+    - uv run mypy src/
+
+# Performance benchmarks (only on main branch)
+benchmark:
+  stage: benchmark
+  image: python:3.10
+  script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install torch torch-geometric
+    - uv pip install tensorflow "keras>=3.0"
+    - uv pip install -e ".[test]"
+    - uv run -m tests.benchmarks.test_performance
+  only:
+    - main
+
+# Keep existing deployment configuration
 deploy_to_main:
   stage: deploy
   script:
@@ -23,3 +109,27 @@ deploy_to_main:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: on_success
   environment: production
+
+# PyPI package deployment
+publish-to-pypi:
+  stage: publish
+  image: python:3.9
+  script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH=$PATH:$HOME/.cargo/bin
+    - uv pip install build twine
+    - uv run -m build
+    - uv run -m twine check dist/*
+    # Only deploy to PyPI from the main branch on tagged releases
+    - |
+      if [[ $CI_COMMIT_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        uv run -m twine upload dist/* --username $PYPI_USERNAME --password $PYPI_PASSWORD
+        echo "Published to PyPI"
+      else
+        echo "Skipping PyPI publish because this is not a tagged release"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  environment: production
+  needs:
+    - deploy_to_main

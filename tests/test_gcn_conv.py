@@ -1,24 +1,25 @@
-import unittest
-import numpy as np
-import os
-import sys
 import itertools
-import pprint # For printing config dict nicely
+import os
+import pprint  # For printing config dict nicely
+import sys
+import unittest
 
 # --- Keras Imports ---
 import keras
+import numpy as np
+
 # Check backend and set skip flag
 KERAS_BACKEND_IS_TORCH = False
 try:
     if keras.backend.backend() == 'torch':
         KERAS_BACKEND_IS_TORCH = True
-        print(f"Keras backend confirmed: 'torch'")
+        print("Keras backend confirmed: 'torch'")
     else:
+        print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison test will be skipped.")
         print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison test will be skipped.")
 except Exception:
      print("Warning: Could not determine Keras backend.")
 
-from keras import layers, initializers
 
 # --- Add src directory to path ---
 SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
@@ -28,19 +29,19 @@ if SRC_DIR not in sys.path:
 # --- Import Custom GCNConv Layer ---
 try:
     # Assumes GCNConv is in layers subdirectory now
+    # Assumes GCNConv is in layers subdirectory now
     from keras_geometric.layers.gcn_conv import GCNConv
 except ImportError as e:
-    print(f"Could not import refactored GCNConv layer from package 'keras_geometric': {e}")
-    GCNConv = None
+    raise ImportError(f"Could not import refactored GCNConv layer from package 'keras_geometric': {e}")
 except Exception as e:
-    print(f"An unexpected error occurred during import: {e}")
-    GCNConv = None
+    raise Exception(f"An unexpected error occurred during import: {e}")
 
 # --- PyTorch Geometric Imports (Optional) ---
 try:
     import torch
     import torch.nn as nn
     from torch_geometric.nn import GCNConv as PyGGCNConv
+
     # Force CPU execution for PyTorch side
     torch.set_default_device('cpu')
     print("Setting PyTorch default device to CPU.")
@@ -50,7 +51,6 @@ except ImportError:
     class PyGGCNConv:
         def __init__(self, *args, **kwargs): pass
     print("PyTorch or PyTorch Geometric not available. Skipping comparison tests.")
-
 
 # --- Test Class Definition ---
 # Use comprehensive name from previous version
@@ -62,16 +62,22 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
         self.num_nodes = 5
         self.input_dim = 8
         self.output_dim = 12
+        self.num_nodes = 5
+        self.input_dim = 8
+        self.output_dim = 12
         self.bias_options = [True, False]
         self.normalization_options = [True, False]
         self.selfloop_options = [True, False]
 
+        np.random.seed(43)
         np.random.seed(43)
         if TORCH_AVAILABLE:
             torch.manual_seed(43)
 
         self.features_np = np.random.randn(self.num_nodes, self.input_dim).astype(np.float32)
         self.edge_index_np = np.array([
+            [0, 1, 1, 2, 3, 4, 0, 3],
+            [1, 0, 2, 1, 4, 3, 2, 2],
             [0, 1, 1, 2, 3, 4, 0, 3],
             [1, 0, 2, 1, 4, 3, 2, 2]
         ], dtype=np.int64)
@@ -91,13 +97,13 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
         self.assertTrue(gcn.use_bias)
         self.assertTrue(gcn.normalize)
         self.assertTrue(gcn.add_self_loops)
-        self.assertEqual(gcn.aggr, 'sum')
+        self.assertEqual(gcn.aggregator, 'sum')
 
         gcn_custom = GCNConv(output_dim=self.output_dim, use_bias=False, normalize=False, add_self_loops=False)
         self.assertFalse(gcn_custom.use_bias)
         self.assertFalse(gcn_custom.normalize)
         self.assertFalse(gcn_custom.add_self_loops)
-        self.assertEqual(gcn_custom.aggr, 'sum')
+        self.assertEqual(gcn_custom.aggregator, 'sum')
 
     def test_refactored_call_shapes(self):
         """Test the forward pass shape of the refactored GCNConv."""
@@ -114,10 +120,9 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
                     normalize=normalize, add_self_loops=add_loops
                 )
                 output = gcn(input_data)
-                try: output_shape = output.cpu().detach().numpy().shape
-                except:
-                    try: output_shape = output.cpu().numpy().shape
-                    except AttributeError: output_shape = output.shape
+                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
+                output_np = keras.ops.convert_to_numpy(output)
+                output_shape = output_np.shape
                 self.assertEqual(output_shape, expected_shape, f"Shape mismatch for bias={use_bias}, norm={normalize}, loops={add_loops}")
 
     def test_config_serialization(self):
@@ -135,18 +140,19 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
         pprint.pprint(config)
         expected_keys = ['name', 'trainable', 'output_dim', 'use_bias',
                          'kernel_initializer', 'bias_initializer',
-                         'add_self_loops', 'normalize', 'aggr']
+                         'add_self_loops', 'normalize', 'aggregator']
         for key in expected_keys:
             if key == 'dtype' and key not in config: continue
             self.assertIn(key, config, f"Key '{key}' missing from config")
 
+        # Check basic config values
         # Check basic config values
         self.assertEqual(config['output_dim'], gcn1_config_params['output_dim'])
         self.assertEqual(config['use_bias'], gcn1_config_params['use_bias'])
         self.assertEqual(config['normalize'], gcn1_config_params['normalize'])
         self.assertEqual(config['add_self_loops'], gcn1_config_params['add_self_loops'])
         self.assertEqual(config['name'], gcn1_config_params['name'])
-        self.assertEqual(config['aggr'], 'sum') # Check aggr is 'sum'
+        self.assertEqual(config['aggregator'], 'sum') # Check aggregator is 'sum'
 
         # --- FIX: Check config content based on actual output (strings or dicts) ---
         # Check based on the assumption get_config returns serialized dicts
@@ -169,6 +175,7 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
             gcn2 = GCNConv.from_config(config)
         except Exception as e:
             print("\n--- FAILED CONFIG ---"); pprint.pprint(config); print("--- END FAILED CONFIG ---")
+            print("\n--- FAILED CONFIG ---"); pprint.pprint(config); print("--- END FAILED CONFIG ---")
             self.fail(f"GCNConv.from_config failed: {e}")
 
         # Verify reconstructed layer properties
@@ -177,7 +184,7 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
         self.assertEqual(gcn1.normalize, gcn2.normalize)
         self.assertEqual(gcn1.add_self_loops, gcn2.add_self_loops)
         self.assertEqual(gcn1.name, gcn2.name)
-        self.assertEqual(gcn1.aggr, gcn2.aggr)
+        self.assertEqual(gcn1.aggregator, gcn2.aggregator)
         # Compare initializer objects after deserialization
         self.assertEqual(gcn2.kernel_initializer, 'he_normal')
         # Bias initializer object only exists if use_bias=True during creation
@@ -232,6 +239,22 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
                 else:
                      self.assertTrue('bias' not in pyg_params or pyg_params.get('bias') is None, f"PyG layer has bias when use_bias=False for {subtest_msg}")
                      self.assertTrue('lin.bias' not in pyg_params or pyg_params.get('lin.bias') is None, f"PyG layer has lin.bias when use_bias=False for {subtest_msg}")
+                print("PyG Parameter Names:", pyg_params.keys()) # DEBUG Print
+                pyg_weight_param_name = None
+                if 'lin.weight' in pyg_params: pyg_weight_param_name = 'lin.weight'
+                elif 'weight' in pyg_params: pyg_weight_param_name = 'weight'
+                else:
+                    subtest_msg = f"bias={use_bias}, norm={normalize}, loops={add_loops}"
+                    self.fail(f"PyG layer missing weight parameter ('lin.weight' or 'weight') for {subtest_msg}")
+
+                pyg_bias_param_name = None
+                if use_bias:
+                    if 'bias' in pyg_params: pyg_bias_param_name = 'bias'
+                    elif 'lin.bias' in pyg_params: pyg_bias_param_name = 'lin.bias'
+                    else: self.fail(f"PyG layer missing bias parameter ('bias' or 'lin.bias') for {subtest_msg}")
+                else:
+                     self.assertTrue('bias' not in pyg_params or pyg_params.get('bias') is None, f"PyG layer has bias when use_bias=False for {subtest_msg}")
+                     self.assertTrue('lin.bias' not in pyg_params or pyg_params.get('lin.bias') is None, f"PyG layer has lin.bias when use_bias=False for {subtest_msg}")
 
                 print(f"Syncing weights (PyG weight='{pyg_weight_param_name}', bias='{pyg_bias_param_name if use_bias else 'None'}')...")
                 if use_bias:
@@ -256,8 +279,9 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
                 pyg_output = pyg_gcn(self.features_torch, self.edge_index_torch)
 
                 # --- Compare Final Outputs ---
-                keras_output_np = keras_output.cpu().detach().numpy()
-                pyg_output_np = pyg_output.cpu().detach().numpy()
+                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
+                keras_output_np = keras.ops.convert_to_numpy(keras_output)
+                pyg_output_np = pyg_output.cpu().detach().numpy() # PyG output is already torch tensor
 
                 print(f"Keras final output shape: {keras_output_np.shape}")
                 print(f"PyG final output shape: {pyg_output_np.shape}")

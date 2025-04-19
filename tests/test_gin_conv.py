@@ -1,12 +1,13 @@
-import unittest
-import numpy as np
-import os
-import sys
 import itertools
+import os
 import pprint
+import sys
+import unittest
 
 # --- Keras/TensorFlow Imports ---
 import keras
+import numpy as np
+
 # Check if the backend is set to 'torch'
 KERAS_BACKEND_IS_TORCH = False
 try:
@@ -41,6 +42,7 @@ try:
     import torch
     import torch.nn as nn
     from torch_geometric.nn import GINConv as PyGGINConv
+
     # Force CPU execution for PyTorch side for consistent comparison
     torch.set_default_device('cpu')
     print("Setting PyTorch default device to CPU.")
@@ -144,15 +146,9 @@ class TestGINConvComprehensive(unittest.TestCase):
                     activation=activation
                 )
                 output = gin(input_data)
-                # Use try-except for robust shape checking across backends/devices
-                try:
-                    output_shape = output.cpu().detach().numpy().shape
-                except:
-                    try: output_shape = output.cpu().numpy().shape
-                    except:
-                        try: output_shape = np.array(output).shape
-                        except: output_shape = output.shape
-                self.assertEqual(output_shape, expected_shape, f"Shape mismatch for config: {mlp_hidden}, {aggr}, {use_bias}, {activation}")
+                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
+                output_np = keras.ops.convert_to_numpy(output)
+                self.assertEqual(output_np.shape, expected_shape, f"Shape mismatch for config: {mlp_hidden}, {aggr}, {use_bias}, {activation}")
 
     def test_config_serialization(self):
         """Test layer get_config and from_config methods."""
@@ -297,8 +293,9 @@ class TestGINConvComprehensive(unittest.TestCase):
                 pyg_output = pyg_gin(self.features_torch, self.edge_index_torch)
 
                 # --- Compare Final Outputs ---
-                keras_output_np = keras_output.cpu().detach().numpy()
-                pyg_output_np = pyg_output.cpu().detach().numpy()
+                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
+                keras_output_np = keras.ops.convert_to_numpy(keras_output)
+                pyg_output_np = pyg_output.cpu().detach().numpy() # PyG output is already torch tensor
 
                 print(f"Keras final output shape: {keras_output_np.shape}")
                 print(f"PyG final output shape: {pyg_output_np.shape}")

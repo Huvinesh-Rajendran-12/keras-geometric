@@ -2,7 +2,7 @@
 
 Keras Geometric is a library built on Keras (version 3+) designed for geometric deep learning, with a primary focus on Graph Neural Networks (GNNs). It provides modular building blocks to easily create and experiment with GNN architectures within the Keras ecosystem.
 
-The core philosophy is to offer a flexible and intuitive API, leveraging the power and simplicity of Keras for building complex graph-based models. Key components include a versatile [`MessagePassing`](src/keras-geometric/message_passing.py) base layer and implementations of popular graph convolution layers like `GCNConv` and `GINConv`.
+The core philosophy is to offer a flexible and intuitive API, leveraging the power and simplicity of Keras for building complex graph-based models. Key components include a versatile [`MessagePassing`](src/keras_geometric/layers/message_passing.py) base layer and implementations of popular graph convolution layers like `GCNConv`, `GINConv`, and `GATv2Conv`.
 
 ## Features
 
@@ -10,6 +10,9 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
 -   **Standard Graph Convolutions:** Ready-to-use implementations of popular graph convolution layers:
     -   `GCNConv`: Graph Convolutional Network layer from Kipf & Welling (2017).
     -   `GINConv`: Graph Isomorphism Network layer from Xu et al. (2019).
+    -   `GATv2Conv`: Graph Attention Network v2 layer from Brody et al. (2021), providing dynamic attention for better expressiveness.
+-   **Data Handling:** Built-in `GraphData` class and utilities for managing graph-structured data and batching multiple graphs together.
+-   **Benchmark Datasets:** Standard citation network datasets (Cora, CiteSeer, PubMed) for node classification tasks.
 -   **Seamless Keras Integration:** Designed as standard Keras layers, making them easy to integrate into `keras.Sequential` or functional API models.
 -   **Backend Agnostic:** Leverages Keras 3, allowing compatibility with different backends like TensorFlow, PyTorch, and JAX (ensure backend compatibility with sparse operations if needed).
 
@@ -33,7 +36,9 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
     # Install the package
     pip install .
     # Or, for development mode (changes in source code reflect immediately)
-    # pip install -e .
+    pip install -e .
+    # With development dependencies
+    pip install -e ".[dev]"
     ```
     *(Note: If you plan to publish to PyPI later, update this section accordingly.)*
 
@@ -58,6 +63,10 @@ GCN layers (Kipf & Welling, 2017) perform a spectral-based convolution on graphs
 **Graph Isomorphism Networks (GIN):**
 
 GIN layers (Xu et al., 2019) were designed to be maximally expressive GNNs, theoretically as powerful as the Weisfeiler-Lehman graph isomorphism test. They use a learnable function (often a small Multi-Layer Perceptron - MLP) to combine a node's features with the aggregated features of its neighbors.
+
+**Graph Attention Networks v2 (GATv2):**
+
+GATv2 layers (Brody et al., 2021) address a theoretical limitation in the original GAT architecture by using a more expressive attention mechanism that enables dynamic attention. This allows the model to assign different importance to different neighbors based on their features and the current task, improving performance on various graph learning tasks.
 
 ## Quick Start: Using `GCNConv`
 
@@ -133,3 +142,96 @@ print("Output Node Embeddings Shape:", output_embeddings.shape)
 # Expected output shape: (num_nodes, units) -> (4, 16)
 ```
 
+## Using `GATv2Conv`
+
+Here's an example of using the `GATv2Conv` layer with multi-head attention:
+
+```python
+import keras
+import numpy as np
+from keras_geometric import GATv2Conv
+
+# ... [Same graph data setup as above] ...
+
+# Input layers
+node_input = keras.Input(shape=(node_features.shape[1],), name="node_features")
+edge_input = keras.Input(shape=(2, None), dtype="int32", name="edge_index")
+
+# Apply GATv2 layer with 2 attention heads
+gatv2_layer = GATv2Conv(
+    output_dim=16,
+    heads=2,
+    concat=True,  # Concatenate attention heads
+    dropout_rate=0.2,
+    negative_slope=0.2
+)
+
+# The GATv2Conv layer expects inputs as a list: [node_features, edge_index]
+node_embeddings = gatv2_layer([node_input, edge_input])
+
+# Apply a second GATv2 layer that averages the attention heads
+output_layer = GATv2Conv(
+    output_dim=4,
+    heads=2,
+    concat=False,  # Average attention heads instead of concatenating
+    dropout_rate=0.2
+)([node_embeddings, edge_input])
+
+# Create the Keras model
+model = keras.Model(inputs=[node_input, edge_input], outputs=output_layer)
+
+# ... [Rest of the code similar to the GCN example] ...
+```
+
+## Working with Datasets
+
+Keras Geometric provides built-in dataset loaders for common benchmark datasets:
+
+```python
+from keras_geometric.datasets import Cora
+
+# Load the Cora citation network dataset
+dataset = Cora(root="data")
+
+# Get the single graph
+graph = dataset[0]
+
+# Access graph components
+x = graph.x  # Node features
+y = graph.y  # Node labels
+edge_index = graph.edge_index  # Edge connectivity
+
+# Use with your GNN model
+model.fit(
+    {"node_features": x, "edge_index": edge_index},
+    y,  # Target node labels
+    epochs=200,
+    batch_size=1  # Process the entire graph as one batch
+)
+```
+
+## Development and Testing
+
+For development, use these commands:
+
+```sh
+# Install in development mode with dev dependencies
+pip install -e ".[dev]"
+
+# Run all tests
+python -m pytest tests/
+
+# Run specific test
+python -m pytest tests/test_gcn_conv.py::TestGCNConvComprehensive::test_refactored_initialization
+
+# Run with verbose output
+python -m pytest -v tests/
+```
+
+## Citation
+
+If you use this library in your research, please cite the respective papers for the GNN methods you use:
+
+- GCN: Kipf & Welling, [Semi-Supervised Classification with Graph Convolutional Networks](https://arxiv.org/abs/1609.02907) (ICLR 2017)
+- GIN: Xu et al., [How Powerful are Graph Neural Networks?](https://arxiv.org/abs/1810.00826) (ICLR 2019)
+- GATv2: Brody et al., [How Attentive are Graph Attention Networks?](https://arxiv.org/abs/2105.14491) (ICLR 2022)

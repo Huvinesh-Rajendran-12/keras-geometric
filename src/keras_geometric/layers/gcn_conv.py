@@ -1,11 +1,9 @@
-import keras
-from keras import initializers, ops
-# import tensorflow as tf # No longer needed
-
 # Assuming MessagePassing is in the same directory or package
-from .message_passing import MessagePassing
+from keras import ops
+
 from keras_geometric.utils.main import add_self_loops, compute_gcn_normalization
 
+from .message_passing import MessagePassing
 
 
 class GCNConv(MessagePassing): # Inherit from MessagePassing
@@ -45,15 +43,13 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
         # GCN *requires* 'add', so we set it after super() if needed,
         # but rely on base class __init__ to handle 'aggr' from kwargs first.
         # The base class default or value from config should be used.
-        # We then force self.aggr = 'add' if necessary, although GCN logic
+        # We then force self.aggr = 'sum' if necessary, although GCN logic
         # now relies on the overridden aggregate method which uses sum anyway.
-        # Let's ensure the base class is initialized correctly via kwargs.
-        kwargs['aggr'] = 'sum' # Ensure 'add' is passed if not in kwargs from config
-        super().__init__(**kwargs)
+        # Pass 'sum' directly to the base class initializer.
+        super().__init__(aggregator='sum', **kwargs) # Pass aggregator='sum' directly
 
-        # Override aggr setting if it came from config incorrectly
-        # GCN implementation relies on summation in the overridden aggregate method
-        self.aggr = 'sum'
+        # Base class __init__ handles setting self.aggregator based on the 'aggregator' argument.
+        # No need to set self.aggregator = 'sum' again here.
 
         self.output_dim = output_dim
         self.use_bias = use_bias
@@ -88,17 +84,17 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
             )
         else:
             self.bias = None
-        self.built = True
 
-    def update(self, aggregated_features):
+    def update(self, aggregated):
         """Overrides base update to add bias."""
         if self.use_bias:
-            return ops.add(aggregated_features, self.bias)
+            return ops.add(aggregated, self.bias)
         else:
-            return aggregated_features
+            return aggregated
 
-    def propagate(self, x, edge_index, edge_weight):
+    def propagate(self, inputs):
         """Custom propagation for GCN using MessagePassing structure."""
+        x, edge_index, edge_weight = inputs
         N = ops.shape(x)[0]
         x_transformed = ops.matmul(x, self.kernel)
         source_node_indices = edge_index[0]
@@ -115,6 +111,11 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
         num_nodes = ops.shape(x)[0]
         edge_index = ops.cast(edge_index, dtype='int32')
 
+        # Ensure edge_index has shape (2, E) if it doesn't
+        if ops.shape(edge_index)[0] != 2:
+            # Extract first two rows which represent source and target nodes
+            edge_index = ops.stack([edge_index[0], edge_index[1]], axis=0)
+
         if self.add_self_loops:
             edge_index_effective = add_self_loops(edge_index, num_nodes)
         else:
@@ -125,7 +126,7 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
         else:
             edge_weight = ops.ones((ops.shape(edge_index_effective)[1],), dtype=x.dtype)
 
-        output = self.propagate(x=x, edge_index=edge_index_effective, edge_weight=edge_weight)
+        output = self.propagate(inputs=(x, edge_index_effective, edge_weight))
         return output
 
     def get_config(self):
@@ -149,7 +150,11 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
     @classmethod
     def from_config(cls, config):
         """Creates a layer from its config."""
-        config['kernel_initializer'] = config['kernel_initializer']
-        config['bias_initializer'] = config['bias_initializer']
-        return cls(**config)
-
+        # Make a copy of the config to avoid modifying the original
+        config_copy = config.copy()
+        # Remove 'aggr' and 'aggregator' since 'aggregator' is passed explicitly in __init__
+        if 'aggr' in config_copy:
+            config_copy.pop('aggr')
+        if 'aggregator' in config_copy:
+            config_copy.pop('aggregator')
+        return cls(**config_copy)

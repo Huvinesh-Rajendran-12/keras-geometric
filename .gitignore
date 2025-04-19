@@ -11,3 +11,6 @@ wheels/
 
 # uv packaged files
 uv.lock
+.aider*
+.env
+.env
