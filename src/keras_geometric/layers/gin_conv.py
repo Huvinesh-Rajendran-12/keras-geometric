@@ -1,45 +1,47 @@
 
 import keras
-from keras import layers, initializers, ops
+from keras import layers, ops
+
 from .message_passing import MessagePassing
+
 
 class GINConv(MessagePassing):
     """
     Graph Isomorphism Network (GIN) Convolution Layer.
-    
+
     This layer implements the Graph Isomorphism Network (GIN) convolution operation,
-    which allows for powerful graph representation learning. It aggregates node 
-    features using a specified aggregation method and transforms them through a 
+    which allows for powerful graph representation learning. It aggregates node
+    features using a specified aggregation method and transforms them through a
     multi-layer perceptron (MLP).
-    
+
     Args:
         output_dim (int): Dimensionality of the output features.
         mlp_hidden (list[int]): List of hidden layer dimensions for the MLP.
         aggr (str, optional): Aggregation method. Defaults to 'mean'.
             Must be one of ['mean', 'max', 'sum'].
         use_bias (bool, optional): Whether to use bias in dense layers. Defaults to True.
-        kernel_initializer (str, optional): Initializer for kernel weights. 
+        kernel_initializer (str, optional): Initializer for kernel weights.
             Defaults to 'glorot_uniform'.
-        bias_initializer (str, optional): Initializer for bias weights. 
+        bias_initializer (str, optional): Initializer for bias weights.
             Defaults to 'zeros'.
-        activation (str, optional): Activation function for hidden layers. 
+        activation (str, optional): Activation function for hidden layers.
             Defaults to 'relu'.
-    
+
     Inherits from MessagePassing layer for graph convolution operations.
     """
-    def __init__(self, 
-            output_dim: int, 
-            mlp_hidden: list[int], 
-            aggr: str = 'mean', 
-            use_bias: bool = True, 
-            kernel_initializer: str = 'glorot_uniform', 
-            bias_initializer: str = 'zeros', 
+    def __init__(self,
+            output_dim: int,
+            mlp_hidden: list[int],
+            aggr: str = 'mean',
+            use_bias: bool = True,
+            kernel_initializer: str = 'glorot_uniform',
+            bias_initializer: str = 'zeros',
             activation: str = 'relu',
             **kwargs):
-        super(GINConv, self).__init__(aggr=aggr, **kwargs) 
+        super(GINConv, self).__init__(aggregator=aggr, **kwargs)
         self.output_dim = output_dim
         self.mlp_hidden = mlp_hidden
-        self.aggr = aggr
+        self.aggregator = aggr
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
@@ -47,11 +49,10 @@ class GINConv(MessagePassing):
 
         assert self.aggr in ['mean', 'max', 'sum'], f"Invalid aggregation method: {self.aggr}. Must be one of ['mean', 'max', 'sum']"
 
-        self.mlp = None
 
     def build(self, input_shape):
         """
-        Build the layer weights 
+        Build the layer weights
 
         Args:
             input_shape: [(N, F), (2, E)]
@@ -59,10 +60,8 @@ class GINConv(MessagePassing):
         input_dim = input_shape[0]
         if len(input_dim) != 2:
             raise ValueError(f"Input shape must be (N, F), got {input_dim}")
-        F = input_dim[1]
 
         mlp_layers = []
-        current_dim = F
         for h_dim in self.mlp_hidden:
             mlp_layers.append(
                 layers.Dense(
@@ -73,8 +72,7 @@ class GINConv(MessagePassing):
                 use_bias=self.use_bias,
                 name=f"mlp_hidden_{len(mlp_layers) + 1}",
                 ))
-            current_dim = h_dim
-            
+
         mlp_layers.append(
             layers.Dense(
                 units=self.output_dim,
@@ -82,10 +80,9 @@ class GINConv(MessagePassing):
                 kernel_initializer=self.kernel_initializer,
                 bias_initializer=self.bias_initializer,
                 use_bias=self.use_bias,
-                name=f"mlp_output"))
+                name="mlp_output"))
         self.mlp = keras.Sequential(mlp_layers)
 
-        self.built = True
 
     def call(self, inputs):
         """
@@ -103,8 +100,8 @@ class GINConv(MessagePassing):
         aggr_neigh = self.propagate([x, edge_idx])
 
         # combine self features and aggregated neighbors
-        x = ops.add(x, aggr_neigh)
-        x = self.mlp(x)
+        h = ops.add(x, aggr_neigh)
+        x = self.mlp(h)
         return x
 
     def get_config(self):
@@ -128,7 +125,9 @@ class GINConv(MessagePassing):
         """
         Creates a layer from its config.
         """
-        config['kernel_initializer'] = config['kernel_initializer']
-        config['bias_initializer'] = config['bias_initializer']
-        config['activation'] = config['activation']
-        return cls(**config) 
+        # Make a copy of the config to avoid modifying the original
+        config_copy = config.copy()
+        # Remove 'aggr' since it's passed explicitly in __init__
+        if 'aggr' in config_copy:
+            config_copy.pop('aggr')
+        return cls(**config_copy)

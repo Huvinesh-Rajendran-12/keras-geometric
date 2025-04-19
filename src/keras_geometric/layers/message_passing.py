@@ -1,16 +1,17 @@
 from keras import layers, ops
 
-class MessagePassing(layers.Layer):
-    def __init__(self, aggr: str = "mean", **kwargs) -> None:
-        super(MessagePassing, self).__init__(**kwargs)
-        config_aggr = kwargs.pop('aggr', aggr)
-        self.aggr = config_aggr
-        assert self.aggr in ['mean', 'max', 'sum'], f"Invalid aggregation method: {self.aggr}. Must be one of ['mean', 'max', 'sum']"
 
-    def message(self, x_i, x_j):
+class MessagePassing(layers.Layer):
+    def __init__(self, aggregator: str = "mean", **kwargs) -> None:
+        super(MessagePassing, self).__init__(**kwargs)
+        self.aggregator = aggregator
+        assert self.aggregator in ['mean', 'max', 'sum', 'pooling'], f"Invalid aggregation method: {self.aggregator}. Must be one of ['mean', 'max', 'sum', 'pooling']"
+
+    def message(self, x_i, x_j, **kwargs):
         """
         Computes messages from source node j to target node i.
         Default implementation returns x_j, which represents the features of the source node (neighbors).
+
         Args:
             x_i: Features of the target node [E, F]
             x_j: Features of the source node (neighbours) [E, F]
@@ -23,6 +24,7 @@ class MessagePassing(layers.Layer):
         """
         Update node features based on aggregated messages.
         Default implementation returns the aggregated messages.
+
         Args:
             aggregated: [N, F]
         Returns:
@@ -37,10 +39,23 @@ class MessagePassing(layers.Layer):
         Args:
             messages: [E, F]
             target_idx: [E]
+            num_nodes: Number of nodes in the graph
         Returns:
+            Aggregated features for each node [N, F]
         """
+        # Handle empty edge case - if there are no edges, return zeros
+        if ops.shape(messages)[0] == 0:
+            # For empty graphs, we need to know the feature dimension
+            # If messages is empty, we can still access its shape
+            if hasattr(messages, 'shape') and len(messages.shape) > 1:
+                feature_dim = messages.shape[1]
+                return ops.zeros((num_nodes, feature_dim), dtype=messages.dtype)
+            else:
+                # Fallback - just return zeros matching the input node features
+                return ops.zeros((num_nodes, ops.shape(messages)[1]), dtype=messages.dtype)
+
         target_idx = ops.cast(target_idx, dtype='int32')
-        if self.aggr == 'mean':
+        if self.aggregator == 'mean':
             # Compute segment mean by summing and dividing by count
             segment_sum = ops.segment_sum(
                 data=messages,
@@ -56,22 +71,23 @@ class MessagePassing(layers.Layer):
                 segment_sum,
                 ops.maximum(segment_count, ops.ones_like(segment_count))
             )
-        elif self.aggr == 'max':
+        elif self.aggregator == 'max':
             aggr = ops.segment_max(data=messages, segment_ids=target_idx, num_segments=num_nodes)
             return ops.where(
                 ops.isinf(aggr),
                 ops.zeros_like(aggr),
                 aggr
             )
-        elif self.aggr == 'sum':
+        elif self.aggregator == 'sum':
             return ops.segment_sum(data=messages, segment_ids=target_idx, num_segments=num_nodes)
         else:
-            raise ValueError(f"Invalid aggregation method: {self.aggr}")
+            raise ValueError(f"Invalid aggregation method: {self.aggregator}")
 
     def propagate(self, inputs):
         """
         Propagate messages through the graph.
         This method is called in the call() method.
+
         Args:
             inputs: List[x, edge_idx]
                 - x: [N, F]
@@ -80,14 +96,13 @@ class MessagePassing(layers.Layer):
             [N, F]
         """
         x, edge_idx = inputs
-        N = ops.shape(x)[0]
-        E = ops.shape(edge_idx)[1]
-
+        N = ops.shape(x)[0]  # Number of nodes
+        # If there are no nodes, return empty tensor
         if N == 0:
-            F = ops.shape(x)[1] # Number of features
-            # Return zero tensor of shape [N, F]
-            return ops.zeros((N, F), dtype=x.dtype)  # Return zero tensor of shape [N, F]
+            F = ops.shape(x)[1]  # Number of features
+            return ops.zeros((N, F), dtype=x.dtype)
 
+        # If there are no edges, we'll handle this in aggregate method
         source_node_idx = edge_idx[0]
         target_node_idx = edge_idx[1]
         x_j = ops.take(x, source_node_idx, axis=0)
@@ -104,7 +119,8 @@ class MessagePassing(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
+        config = super().get_config()
         config.update({
-            'aggr': self.aggr
+            'aggregator': self.aggregator
         })
         return config

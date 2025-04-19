@@ -1,10 +1,11 @@
-import unittest
-import numpy as np
 import os
 import sys
+import unittest
 
 # --- Keras Imports ---
 import keras
+import numpy as np
+
 KERAS_BACKEND_IS_TORCH = False
 try:
     if keras.backend.backend() == 'torch':
@@ -39,24 +40,24 @@ except Exception as e:
 
 class DummyMessagePassing(MessagePassing):
     """A simple implementation of MessagePassing for testing."""
-    def __init__(self, aggr='sum', **kwargs):
-        super().__init__(aggr=aggr, **kwargs)
-    
+    def __init__(self, aggregator='sum', **kwargs):
+        super().__init__(aggregator=aggregator, **kwargs)
+
     def message(self, x_i, x_j):
         return x_j
-    
+
     def update(self, aggr_out):
         return aggr_out
 
 @unittest.skipIf(MessagePassing is None, "MessagePassing base class could not be imported.")
 class TestMessagePassingComprehensive(unittest.TestCase):
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.num_nodes = 7
         self.num_features = 4
         self.aggregation_methods = ['mean', 'max', 'sum']
-        
+
         # Create a simple graph for testing
         np.random.seed(42)
         self.features_np = np.random.randn(self.num_nodes, self.num_features).astype(np.float32)
@@ -73,35 +74,32 @@ class TestMessagePassingComprehensive(unittest.TestCase):
         print("\n--- Testing MessagePassing Initialization ---")
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggr=aggr)
-                self.assertEqual(mp.aggr, aggr)
-        
+                mp = DummyMessagePassing(aggregator=aggr)
+                self.assertEqual(mp.aggregator, aggr)
+
         # Test invalid aggregation
         with self.assertRaises(AssertionError):
-            DummyMessagePassing(aggr='invalid')
+            DummyMessagePassing(aggregator='invalid')
 
     def test_message_passing_shapes(self):
         """Test the shapes of intermediate tensors in message passing."""
         print("\n--- Testing MessagePassing Shapes ---")
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggr=aggr)
+                mp = DummyMessagePassing(aggregator=aggr)
                 output = mp([self.features_keras, self.edge_index_keras])
-                
-                try:
-                    output_shape = output.cpu().detach().numpy().shape
-                except:
-                    try: output_shape = output.cpu().numpy().shape
-                    except: output_shape = output.shape
-                
+
+                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
+                output_np = keras.ops.convert_to_numpy(output)
+
                 # Output should maintain node count and feature dimensions
-                self.assertEqual(output_shape, (self.num_nodes, self.num_features),
-                               f"Shape mismatch for aggregation '{aggr}'")
+                self.assertEqual(output_np.shape, (self.num_nodes, self.num_features),
+                               f"Shape mismatch for aggregator '{aggr}'")
 
     def test_message_passing_values(self):
         """Test the actual values after message passing with different aggregations."""
         print("\n--- Testing MessagePassing Values ---")
-        
+
         def manual_aggregate(x, edge_index, method):
             """Manually compute aggregation for verification."""
             num_nodes = x.shape[0]
@@ -113,7 +111,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                 if len(neighbors) == 0:
                     continue
                 neighbor_features = x[neighbors]
-                
+
                 if method == 'mean':
                     out[target_idx] = np.mean(neighbor_features, axis=0)
                 elif method == 'max':
@@ -124,29 +122,25 @@ class TestMessagePassingComprehensive(unittest.TestCase):
 
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggr=aggr)
+                mp = DummyMessagePassing(aggregator=aggr)
                 output = mp([self.features_keras, self.edge_index_keras])
-                
-                # Convert output to numpy for comparison
-                try:
-                    output_np = output.cpu().detach().numpy()
-                except:
-                    try: output_np = output.cpu().numpy()
-                    except: output_np = np.array(output)
-                
+
+                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
+                output_np = keras.ops.convert_to_numpy(output)
+
                 # Compute expected output manually
                 expected_output = manual_aggregate(
                     self.features_np,
                     self.edge_index_np,
                     aggr
                 )
-                
+
                 # Compare actual vs expected
                 try:
                     np.testing.assert_allclose(
                         output_np, expected_output,
                         rtol=1e-5, atol=1e-5,
-                        err_msg=f"Values mismatch for aggregation '{aggr}'"
+                        err_msg=f"Values mismatch for aggregator '{aggr}'"
                     )
                     print(f"✅ Values match for aggregation '{aggr}'")
                 except AssertionError as e:
@@ -164,18 +158,15 @@ class TestMessagePassingComprehensive(unittest.TestCase):
             np.zeros((2, 0), dtype=np.int64),
             dtype='int32'
         )
-        
+
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggr=aggr)
+                mp = DummyMessagePassing(aggregator=aggr)
                 output = mp([self.features_keras, empty_edge_index])
-                
-                try:
-                    output_np = output.cpu().detach().numpy()
-                except:
-                    try: output_np = output.cpu().numpy()
-                    except: output_np = np.array(output)
-                
+
+                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
+                output_np = keras.ops.convert_to_numpy(output)
+
                 # With no edges, output should be zeros
                 expected_shape = (self.num_nodes, self.num_features)
                 self.assertEqual(output_np.shape, expected_shape)
@@ -183,7 +174,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                     output_np,
                     np.zeros(expected_shape),
                     rtol=1e-5, atol=1e-5,
-                    err_msg=f"Empty graph output not zero for '{aggr}'"
+                    err_msg=f"Empty graph output not zero for aggregator '{aggr}'"
                 )
 
 if __name__ == '__main__':
