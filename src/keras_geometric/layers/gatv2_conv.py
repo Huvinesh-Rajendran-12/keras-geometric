@@ -200,6 +200,18 @@ class GATv2Conv(MessagePassing):
         return output
 
     def message(self, x_i, x_j, **kwargs):
+        """
+        Computes messages with attention weights.
+
+        Args:
+            x_i: Tensor of shape [E, H, F] containing features of the target nodes.
+                Not used in this implementation but required by the MessagePassing interface.
+            x_j: Tensor of shape [E, H, F] containing features of the source nodes.
+            **kwargs: Contains 'alpha' - the attention coefficients of shape [E, H, 1].
+
+        Returns:
+            Tensor of shape [E, H, F] containing the weighted messages.
+        """
         alpha = kwargs['alpha']
         return alpha * x_j
 
