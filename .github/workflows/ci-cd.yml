@@ -1,0 +1,197 @@
+# .github/workflows/ci-cd.yml
+name: Keras-Geometric CI/CD
+
+# Controls when the workflow will run
+on:
+  push:
+    branches: [main] # Run tests/lint on pushes to main
+    tags:
+      - "v*" # Run build/publish on version tags (e.g., v0.1.0, v0.1.0b1)
+  pull_request:
+    branches: [main] # Run tests/lint on PRs targeting main
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  # --- Linting Job ---
+  lint:
+    name: Linting (Python 3.11)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Install dependencies including project and lint tools
+        run: uv pip install -e ".[dev]" # Installs flake8, mypy via dev extra
+
+      - name: Run flake8
+        run: uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Run mypy
+        run: uv run mypy src/
+
+  # --- Testing Job (Matrix) ---
+  test:
+    name: Test Python ${{ matrix.python-version }} / ${{ matrix.keras-backend }}
+    needs: lint # Optional: run tests only if lint passes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # Keep running other matrix jobs even if one fails
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        keras-backend: [tensorflow, torch, jax]
+        # Define backend dependencies (adjust versions as needed)
+        include:
+          - keras-backend: tensorflow
+            backend-deps: '"tensorflow-macos>=2.17" "keras>=3.0"' # Use tensorflow if not on macOS
+          - keras-backend: torch
+            backend-deps: '"torch" "torch-geometric" "torch-scatter" "keras>=3.0"' # Added torch-scatter
+          - keras-backend: jax
+            backend-deps: '"jax[cpu]" "keras>=3.0"' # Use jax[cuda] for GPU
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          # Include python version and backend in cache key
+          key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ matrix.keras-backend }}-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ matrix.keras-backend }}-
+
+      - name: Install backend dependencies
+        run: uv pip install ${{ matrix.backend-deps }}
+
+      - name: Install project + test dependencies
+        run: uv pip install -e ".[test]"
+
+      - name: Run tests
+        run: uv run python -m unittest discover -s tests -v
+        env:
+          # Set the backend for Keras
+          KERAS_BACKEND: ${{ matrix.keras-backend }}
+          # Potentially needed if TF uses GPU by default on runners
+          # CUDA_VISIBLE_DEVICES: ""
+
+  # --- Build Job ---
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: test # Make sure tests pass on the tagged commit before building
+    if: startsWith(github.ref, 'refs/tags/v') # Condition to run only on tags like v*
+    steps:
+      - name: Checkout code (fetch full history for hatch-vcs)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for hatch-vcs to get tags
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-build-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-build-
+
+      - name: Install build dependencies
+        run: uv pip install build hatch-vcs
+
+      - name: Build package
+        run: uv run python -m build
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  # --- Publish to TestPyPI Job --- ## Renamed Job ##
+  publish_testpypi:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    needs: build # Run after build is complete
+    if: startsWith(github.ref, 'refs/tags/v') # Condition to run only on tags like v*
+    environment: # Optional: Define TestPyPI environment
+      name: testpypi
+      url: https://test.pypi.org/p/keras-geometric # Link to your TestPyPI project
+    # permissions: # Typically not needed for token upload to TestPyPI
+    # id-token: write
+
+    steps:
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-publish-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-publish-
+
+      - name: Install Twine
+        run: uv pip install twine
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/ # Download to dist/ directory
+
+      - name: Check artifacts
+        run: ls -l dist/
+
+      - name: Publish package to TestPyPI ## Modified command ##
+        # Use __token__ and the TestPyPI token stored in secrets
+        run: uv run twine upload --repository testpypi --non-interactive -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }} dist/*
