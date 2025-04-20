@@ -61,7 +61,8 @@ model.summary()
 
 # --- 3. Use the Model (Example: Get embeddings) ---
 # Get the node embeddings
-output_embeddings = model.predict([node_features, edge_index])
+# Note: We need to pass the edge_index as is, not wrapped in another list/array
+output_embeddings = model.predict({"node_features": node_features, "edge_index": edge_index})
 
 print("\nInput Node Features Shape:", node_features.shape)
 print("Edge Index Shape:", edge_index.shape)
