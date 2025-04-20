@@ -76,7 +76,7 @@ class GATv2Conv(MessagePassing):
 
         # Linear transformation for node features
         self.linear_transform = layers.Dense(
-            self.heads * self.hidden_channels,
+            self.heads * self.hidden_dim,
             kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
             use_bias=True
@@ -85,7 +85,7 @@ class GATv2Conv(MessagePassing):
         # Attention weights - the key difference from GAT
         # is that we apply this after linear transform and concatenation
         self.att = self.add_weight(
-            shape=(1, self.heads, self.hidden_channels),
+            shape=(1, self.heads, self.hidden_dim),  # Use hidden_dim instead of hidden_channels
             initializer=self.kernel_initializer_obj,
             name="att",
             trainable=True
@@ -93,8 +93,14 @@ class GATv2Conv(MessagePassing):
 
         # Bias
         if self.use_bias:
+            # Calculate the correct bias shape based on concat flag
+            if self.concat:
+                bias_shape = (self.heads * self.hidden_dim,)  # For concatenated output
+            else:
+                bias_shape = (self.hidden_dim,)  # For averaged output
+
             self.bias = self.add_weight(
-                shape=(self.heads * self.output_dim if self.concat else self.output_dim,),
+                shape=bias_shape,
                 initializer=self.bias_initializer_obj,
                 name="bias_concat" if self.concat else "bias_average",
                 trainable=True
@@ -123,17 +129,28 @@ class GATv2Conv(MessagePassing):
         Forward pass with attention mechanism.
 
         Args:
-            x: [N, heads, output_dim]
-            edge_index: [2, E]
+            h_i: [E, heads, hidden_dim] - Features of target nodes
+            h_j: [E, heads, hidden_dim] - Features of source nodes
+            target_idx: [E] - Target node indices
+            num_nodes: Number of nodes
 
         Returns:
-            [N, output_channels]
+            [E, heads, 1] - Attention coefficients
         """
-        g_ij = ops.add(h_i, h_j)
+        # Add source and target node features
+        g_ij = ops.add(h_i, h_j)  # [E, heads, hidden_dim]
 
-        z_ij = ops.leaky_relu(g_ij, negative_slope=self.negative_slope)
+        # Apply LeakyReLU
+        z_ij = ops.leaky_relu(g_ij, negative_slope=self.negative_slope)  # [E, heads, hidden_dim]
 
-        attn_scores = ops.sum(ops.matmul(z_ij, self.attention_weights), axis=-1)
+        # Compute attention scores using a simpler approach
+        # Reshape attention weights for broadcasting
+        # z_ij: [E, heads, hidden_dim], self.att: [1, heads, hidden_dim]
+        # We want to do a dot product along the hidden_dim axis for each head
+
+        # Compute dot product between z_ij and attention weights
+        # This is equivalent to sum(z_ij * att, axis=-1)
+        attn_scores = ops.sum(z_ij * self.att, axis=-1)  # [E, heads]
 
         alpha = self._softmax_by_target(attn_scores, target_idx, num_nodes)
 
