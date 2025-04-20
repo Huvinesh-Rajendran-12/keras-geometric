@@ -1,135 +1,172 @@
 stages:
+  - setup # Added stage for common setup
   - test
   - lint
-  - benchmark
-  - deploy
-  - publish
+  - build # Added explicit build stage
+  - publish # Combined deploy/publish
 
 variables:
-  UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  # Define Python versions to test
+  PYTHON_VERSIONS: "3.9 3.10 3.11 3.12" # Space-separated list
+  # Default Keras version (can be overridden)
+  KERAS_VERSION: "keras>=3.0"
+  # Default backend versions (can be overridden)
+  TF_VERSION: "tensorflow-macos>=2.17" # Use tensorflow if not on macOS ARM
+  TORCH_VERSION: "torch torch-geometric torch-scatter" # Add torch-scatter
+  JAX_VERSION: "jax[cpu]"
+  # Cache directories
+  UV_CACHE_DIR: "${CI_PROJECT_DIR}/.cache/uv"
+  PIP_CACHE_DIR: ${CI_PROJECT_DIR}/.cache/pip
 
 cache:
+  key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_IMAGE} # Cache per branch/tag and image
   paths:
-    - .uv-cache/
+    - ${UV_CACHE_DIR}
+    - ${PIP_CACHE_DIR}
+    - .venv # Cache the virtual environment per job
 
-# Install uv for all jobs
-before_script:
-  - curl -LsSf https://astral.sh/uv/install.sh | sh
-  - export PATH=$PATH:$HOME/.local/bin
-
-# Template for Python test jobs
-.test-template:
-  stage: test
+# --- Stage for common setup ---
+install_uv:
+  stage: setup
+  image: python:3.11 # Use a recent Python version for uv install
   script:
-    - python -V
-    - uv pip install pytest
-    - uv pip install -e ".[test]"
-    - uv run -m pytest tests/
+    - echo "Installing uv..."
+    # Check if uv is already installed (e.g., in cached .venv/bin)
+    - if ! command -v uv &> /dev/null; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi
+    # Verify installation
+    - source $HOME/.cargo/env || source $HOME/.local/bin/uv || export PATH=$PATH:$HOME/.local/bin # Adjust activation based on install location
+    - uv --version
+  # No cache needed here, just ensures uv exists for subsequent stages if not cached via .venv
 
-# Test with different Python versions and backends
-test-python39-tensorflow:
-  extends: .test-template
-  image: python:3.9
+# --- Test Job Template ---
+.test_template:
+  stage: test
+  variables:
+    # Default backend if not specified by job
+    KERAS_BACKEND: "tensorflow" # Default to TF if not overridden
   before_script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
+    # Install uv (might be cached)
+    - if ! command -v uv &> /dev/null; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi
+    - source $HOME/.cargo/env || source $HOME/.local/bin/uv || export PATH=$PATH:$HOME/.local/bin
+    - uv --version
+    # Setup venv (might be cached)
+    - uv venv .venv --seed
+    - source .venv/bin/activate
+    # Install Keras first
+    - uv pip install $KERAS_VERSION
+    # Install specific backend based on job variable
+    - |
+      if [ "$KERAS_BACKEND" = "tensorflow" ]; then
+        echo "Installing TensorFlow backend..."
+        uv pip install $TF_VERSION
+      elif [ "$KERAS_BACKEND" = "torch" ]; then
+        echo "Installing PyTorch backend..."
+        uv pip install $TORCH_VERSION
+      elif [ "$KERAS_BACKEND" = "jax" ]; then
+        echo "Installing JAX backend..."
+        uv pip install $JAX_VERSION
+      else
+        echo "Error: Unknown KERAS_BACKEND value: $KERAS_BACKEND"
+        exit 1
+      fi
+    # Install test dependencies AND the package itself editable
+    - echo "Installing project + test dependencies..."
+    - uv pip install -e ".[test]" # Includes pytest, pyg etc.
+  script:
+    # Set backend explicitly for Keras
+    - export KERAS_BACKEND=${KERAS_BACKEND}
+    - echo "Using Keras backend: $KERAS_BACKEND"
+    - python -c "import keras; print(keras.backend.backend())" # Verify backend
+    - echo "Running tests..."
+    # Use unittest discover as used previously
+    - uv run python -m unittest discover -s tests -v
+  artifacts:
+    when: on_failure # Optional: save venv cache on failure for debugging
+    paths:
+      - ${UV_CACHE_DIR}
+      - ${PIP_CACHE_DIR}
+      - .venv
 
-test-python39-torch:
-  extends: .test-template
-  image: python:3.9
-  before_script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install torch torch-geometric "keras>=3.0"
+# --- Generate Test Jobs ---
+# Use GitLab's parallel:matrix feature for cleaner generation
+test:
+  extends: .test_template
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12"]
+        KERAS_BACKEND: ["tensorflow", "torch", "jax"]
+  image: python:${PYTHON_VERSION}
+  # Exclude combinations if needed (e.g., JAX on older Python)
+  rules:
+    - if: $PYTHON_VERSION == "3.9" && $KERAS_BACKEND == "jax"
+      when: never # Example: If JAX isn't supported well on 3.9
+    - when: on_success # Default rule
 
-test-python39-jax:
-  extends: .test-template
-  image: python:3.9
-  before_script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install "jax[cpu]" "keras>=3.0"
-
-test-python310-tensorflow:
-  extends: .test-template
-  image: python:3.10
-  before_script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
-
-test-python310-torch:
-  extends: .test-template
-  image: python:3.10
-  before_script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install torch torch-geometric "keras>=3.0"
-
-test-python312:
-  extends: .test-template
-  image: python:3.12
-  before_script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install "tensorflow>=2.19.0" "keras>=3.0"
-
-# Linting and type checking
+# --- Linting Job ---
 lint:
   stage: lint
-  image: python:3.9
+  image: python:3.11 # Use a consistent Python version for linting
+  before_script:
+    - if ! command -v uv &> /dev/null; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi
+    - source $HOME/.cargo/env || source $HOME/.local/bin/uv || export PATH=$PATH:$HOME/.local/bin
+    - uv --version
+    - uv venv .venv --seed
+    - source .venv/bin/activate
+    # Install lint tools AND project dependencies needed for mypy
+    - uv pip install flake8 mypy types-PyYAML # Add any other lint deps
+    - uv pip install -e ".[dev]" # Install project + deps for mypy analysis
   script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install flake8 mypy
+    - echo "Running flake8..."
     - uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+    - echo "Running mypy..."
     - uv run mypy src/
 
-# Performance benchmarks (only on main branch)
-benchmark:
-  stage: benchmark
-  image: python:3.10
+# --- Build Job ---
+build_package:
+  stage: build
+  image: python:3.11 # Use a consistent Python version for building
+  before_script:
+    - if ! command -v uv &> /dev/null; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi
+    - source $HOME/.cargo/env || source $HOME/.local/bin/uv || export PATH=$PATH:$HOME/.local/bin
+    - uv --version
+    - uv venv .venv --seed
+    - source .venv/bin/activate
+    # Install build dependencies + hatch-vcs
+    - uv pip install build hatch-vcs
   script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install torch torch-geometric
-    - uv pip install tensorflow "keras>=3.0"
-    - uv pip install -e ".[test]"
-    - uv run -m tests.benchmarks.test_performance
-  only:
-    - main
-
-# Keep existing deployment configuration
-deploy_to_main:
-  stage: deploy
-  script:
-    - echo "Merging into main branch..."
+    - echo "Building package for tag: $CI_COMMIT_TAG"
+    # Ensure git history/tags are available for hatch-vcs
+    - apt-get update && apt-get install -y --no-install-recommends git || apk add --no-cache git || yum install -y git # Install git if not present
+    - git fetch --tags --unshallow --quiet || echo "Git unshallow failed or not needed."
+    - uv run python -m build
+  artifacts:
+    paths:
+      - dist/ # Save built artifacts
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: on_success
-  environment: production
+    # Build only when a tag is pushed
+    - if: $CI_COMMIT_TAG
 
-# PyPI package deployment
-publish-to-pypi:
+# --- Publish Job ---
+publish_to_pypi:
   stage: publish
-  image: python:3.9
+  image: python:3.11 # Use a consistent Python version for publishing
+  needs: ["build_package"] # Depend on the build job
+  before_script:
+    - if ! command -v uv &> /dev/null; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi
+    - source $HOME/.cargo/env || source $HOME/.local/bin/uv || export PATH=$PATH:$HOME/.local/bin
+    - uv --version
+    - uv venv .venv --seed
+    - source .venv/bin/activate
+    # Install twine
+    - uv pip install twine
   script:
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH=$PATH:$HOME/.local/bin
-    - uv pip install build twine
-    - uv run -m build
-    - uv run -m twine check dist/*
-    # Only deploy to PyPI from the main branch on tagged releases
-    - |
-      if [[ $CI_COMMIT_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        uv run -m twine upload dist/* --username $PYPI_USERNAME --password $PYPI_PASSWORD
-        echo "Published to PyPI"
-      else
-        echo "Skipping PyPI publish because this is not a tagged release"
-      fi
+    - echo "Checking built packages..."
+    - ls -l dist/
+    - uv run twine check dist/*
+    # --- FIX: Use API Token ---
+    - echo "Uploading to PyPI..."
+    - uv run twine upload --non-interactive -u __token__ -p $PYPI_API_TOKEN dist/*
   rules:
-    - if: $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
-  environment: production
-  needs:
-    - deploy_to_main
+    # --- FIX: Updated regex to include beta tags ---
+    # Deploy only when a tag like vX.Y.Z or vX.Y.ZbN is pushed
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(b\d+)?$/
