@@ -107,26 +107,26 @@ class TestGINConvComprehensive(unittest.TestCase):
     def test_initialization_variations(self):
         """Test layer initialization with various valid parameters."""
         print("\n--- Testing Initialization Variations ---")
-        for mlp_hidden, aggr, use_bias, activation in itertools.product(
+        for mlp_hidden, aggregator, use_bias, activation in itertools.product(
             self.mlp_hidden_options, self.aggregation_options, self.bias_options, self.activation_options
         ):
-            with self.subTest(mlp_hidden=mlp_hidden, aggr=aggr, use_bias=use_bias, activation=activation):
+            with self.subTest(mlp_hidden=mlp_hidden, aggregator=aggregator, use_bias=use_bias, activation=activation):
                 gin = GINConv(
                     output_dim=self.output_dim,
                     mlp_hidden=mlp_hidden,
-                    aggr=aggr,
+                    aggregator=aggregator,
                     use_bias=use_bias,
                     activation=activation
                 )
                 self.assertEqual(gin.output_dim, self.output_dim)
                 self.assertEqual(gin.mlp_hidden, mlp_hidden)
-                self.assertEqual(gin.aggr, aggr) # Assumes GINConv.__init__ passes aggr to super()
+                self.assertEqual(gin.aggr, aggregator) # Assumes GINConv.__init__ passes aggregator to super()
                 self.assertEqual(gin.use_bias, use_bias)
                 self.assertEqual(gin.activation, activation) # Check stored identifier
 
         # Test invalid aggregation
         with self.assertRaises(AssertionError, msg="AssertionError not raised for invalid aggregation"):
-            GINConv(output_dim=self.output_dim, mlp_hidden=[16], aggr='invalid_aggr')
+            GINConv(output_dim=self.output_dim, mlp_hidden=[16], aggregator='invalid_aggr')
 
     def test_call_shapes_variations(self):
         """Test the forward pass shape for different configurations."""
@@ -141,7 +141,7 @@ class TestGINConvComprehensive(unittest.TestCase):
                 gin = GINConv(
                     output_dim=self.output_dim,
                     mlp_hidden=mlp_hidden,
-                    aggr=aggr,
+                    aggregator=aggr,
                     use_bias=use_bias,
                     activation=activation
                 )
@@ -157,7 +157,7 @@ class TestGINConvComprehensive(unittest.TestCase):
         gin1 = GINConv(
             output_dim=self.output_dim + 1, # Different output dim
             mlp_hidden=[32, 64],
-            aggr='max',
+            aggregator='max',
             use_bias=False,
             activation='tanh',
             kernel_initializer='he_normal',
@@ -196,7 +196,7 @@ class TestGINConvComprehensive(unittest.TestCase):
         # Verify reconstructed layer properties
         self.assertEqual(gin1.output_dim, gin2.output_dim)
         self.assertEqual(gin1.mlp_hidden, gin2.mlp_hidden)
-        self.assertEqual(gin1.aggr, gin2.aggr)
+        self.assertEqual(gin1.aggregator, gin2.aggregator)
         self.assertEqual(gin1.use_bias, gin2.use_bias)
         # Compare stored identifiers
         self.assertEqual(gin1.activation, gin2.activation)
@@ -244,7 +244,7 @@ class TestGINConvComprehensive(unittest.TestCase):
                 # Assuming user fixed GINConv: aggr passed to super, no activation on final MLP layer
                 keras_gin = GINConv(
                     output_dim=self.output_dim, mlp_hidden=mlp_hidden,
-                    aggr=keras_aggr, use_bias=use_bias, activation=activation
+                    aggregator=keras_aggr, use_bias=use_bias, activation=activation
                 )
                 # Build layer
                 _ = keras_gin([self.features_keras, self.edge_index_keras])

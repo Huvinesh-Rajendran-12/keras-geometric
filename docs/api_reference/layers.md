@@ -12,7 +12,7 @@ Base class for all graph neural network message passing layers.
 
 **Arguments:**
 
-- **aggr** (*str*): The aggregation method to use ('mean', 'max', or 'sum'). Default is 'mean'.
+- **aggregator** (_str_): The aggregation method to use ('mean', 'max', or 'sum'). Default is 'mean'.
 
 **Methods:**
 
@@ -34,12 +34,12 @@ H' = σ(D⁻⁰⁵ Ã D⁻⁰⁵ X W), where Ã = A + I.
 
 **Arguments:**
 
-- **output_dim** (*int*): Dimension of the output features.
-- **use_bias** (*bool*): Whether to use a bias vector. Default is True.
-- **kernel_initializer** (*str or Initializer*): Initializer for the kernel weights matrix. Default is 'glorot_uniform'.
-- **bias_initializer** (*str or Initializer*): Initializer for the bias vector. Default is 'zeros'.
-- **add_self_loops** (*bool*): Whether to add self-loops to the adjacency matrix. Default is True.
-- **normalize** (*bool*): Whether to apply symmetric normalization. Default is True.
+- **output_dim** (_int_): Dimension of the output features.
+- **use_bias** (_bool_): Whether to use a bias vector. Default is True.
+- **kernel_initializer** (_str or Initializer_): Initializer for the kernel weights matrix. Default is 'glorot_uniform'.
+- **bias_initializer** (_str or Initializer_): Initializer for the bias vector. Default is 'zeros'.
+- **add_self_loops** (_bool_): Whether to add self-loops to the adjacency matrix. Default is True.
+- **normalize** (_bool_): Whether to apply symmetric normalization. Default is True.
 
 ### GINConv
 
@@ -51,10 +51,10 @@ Graph Isomorphism Network (GIN) Convolution Layer.
 
 **Arguments:**
 
-- **output_dim** (*int*): Dimensionality of the output features.
-- **mlp_hidden** (*list[int]*): List of hidden layer dimensions for the MLP.
-- **aggr** (*str*): Aggregation method. Default is 'mean'. Must be one of ['mean', 'max', 'sum'].
-- **use_bias** (*bool*): Whether to use bias in dense layers. Default is True.
-- **kernel_initializer** (*str*): Initializer for kernel weights. Default is 'glorot_uniform'.
-- **bias_initializer** (*str*): Initializer for bias weights. Default is 'zeros'.
-- **activation** (*str*): Activation function for hidden layers. Default is 'relu'.
+- **output_dim** (_int_): Dimensionality of the output features.
+- **mlp_hidden** (_list[int]_): List of hidden layer dimensions for the MLP.
+- **aggregator** (_str_): Aggregation method. Default is 'mean'. Must be one of ['mean', 'max', 'sum'].
+- **use_bias** (_bool_): Whether to use bias in dense layers. Default is True.
+- **kernel_initializer** (_str_): Initializer for kernel weights. Default is 'glorot_uniform'.
+- **bias_initializer** (_str_): Initializer for bias weights. Default is 'zeros'.
+- **activation** (_str_): Activation function for hidden layers. Default is 'relu'.

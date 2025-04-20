@@ -16,7 +16,6 @@ try:
         print("Keras backend confirmed: 'torch'")
     else:
         print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison test will be skipped.")
-        print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison test will be skipped.")
 except Exception:
      print("Warning: Could not determine Keras backend.")
 
@@ -28,7 +27,6 @@ if SRC_DIR not in sys.path:
 
 # --- Import Custom GCNConv Layer ---
 try:
-    # Assumes GCNConv is in layers subdirectory now
     # Assumes GCNConv is in layers subdirectory now
     from keras_geometric.layers.gcn_conv import GCNConv
 except ImportError as e:

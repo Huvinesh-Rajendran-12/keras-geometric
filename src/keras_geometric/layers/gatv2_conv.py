@@ -49,7 +49,7 @@ class GATv2Conv(MessagePassing):
         self.heads = heads
         self.concat = concat
         self.negative_slope = negative_slope
-        self.dropout_rate = dropout_rate
+        self.dropout = dropout_rate  # Store as self.dropout for consistency
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
@@ -122,6 +122,14 @@ class GATv2Conv(MessagePassing):
 
         x, edge_idx = inputs
         edge_idx = ops.cast(edge_idx, dtype="int32")
+
+        # Add self-loops if needed
+        if self.add_self_loops:
+            num_nodes = ops.shape(x)[0]
+            # Import here to avoid circular import issues
+            from keras_geometric.utils.main import add_self_loops
+            edge_idx = add_self_loops(edge_idx, num_nodes)
+
         return self.propagate((x, edge_idx))
 
     def _compute_attention(self, h_i, h_j, target_idx, num_nodes):
@@ -150,7 +158,7 @@ class GATv2Conv(MessagePassing):
 
         # Compute dot product between z_ij and attention weights
         # This is equivalent to sum(z_ij * att, axis=-1)
-        attn_scores = ops.sum(z_ij * self.att, axis=-1)  # [E, heads]
+        attn_scores = ops.sum(ops.dot(z_ij, self.att), axis=-1)  # [E, heads]
 
         # Compute softmax of attention scores grouped by target nodes
         alpha = self._softmax_by_target(attn_scores, target_idx, num_nodes)
@@ -169,8 +177,7 @@ class GATv2Conv(MessagePassing):
         Returns:
             [E, H] Normalized attention coefficients
         """
-        # Create a large negative number for padding
-        # min_value = ops.cast(-1e9, dtype=alpha.dtype)
+        # Note: We handle numerical stability directly in the implementation below
 
         # We'll compute max and sum for each target node's neighborhood
         target_nodes = ops.cast(target_nodes, dtype='int32')
@@ -205,8 +212,8 @@ class GATv2Conv(MessagePassing):
 
         alpha = self._compute_attention(h_i, h_j, target_idx, N)
 
-        if self.dropout_rate > 0 and self.trainable:
-            alpha = layers.Dropout(self.dropout_rate)(alpha)
+        if self.dropout > 0 and self.trainable:
+            alpha = layers.Dropout(self.dropout)(alpha)
 
         # flattening the messages into (E, heads * hidden_dim)
         messages = ops.reshape(self.message(h_i, h_j, alpha=alpha), [E, self.heads * self.hidden_dim])
@@ -276,9 +283,6 @@ class GATv2Conv(MessagePassing):
         """
         # Make a copy of the config to avoid modifying the original
         config_copy = config.copy()
-        # Remove 'aggr' and 'aggregator' since 'aggregator' is passed explicitly in __init__
-        if 'aggr' in config_copy:
-            config_copy.pop('aggr')
         if 'aggregator' in config_copy:
             config_copy.pop('aggregator')
         return cls(**config_copy)

@@ -100,14 +100,14 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
                     use_bias=use_bias, add_self_loops=add_loops,
                     dropout=dropout, negative_slope=neg_slope
                 )
-                self.assertEqual(gat.out_channels, self.output_dim)
+                self.assertEqual(gat.output_dim, self.output_dim)
                 self.assertEqual(gat.heads, heads)
                 self.assertEqual(gat.concat, concat)
                 self.assertEqual(gat.use_bias, use_bias)
                 self.assertEqual(gat.add_self_loops, add_loops)
                 self.assertEqual(gat.dropout, dropout) # Check dropout storage
                 self.assertEqual(gat.negative_slope, neg_slope)
-                self.assertEqual(gat.aggr, 'add') # Should be forced to 'add'
+                self.assertEqual(gat.aggregator, 'add') # Should be forced to 'add'
 
     def test_call_shapes_variations(self):
         """Test the forward pass shape for different configurations."""
@@ -140,7 +140,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
         """Test layer get_config and from_config methods."""
         print("\n--- Testing GATv2Conv Config Serialization ---")
         gat1_config_params = dict(
-            out_channels=self.output_dim + 1, heads=4, concat=False,
+            output_dim=self.output_dim + 1, heads=4, concat=False,
             negative_slope=0.1, dropout=0.1, use_bias=False,
             kernel_initializer='he_normal', bias_initializer='ones',
             att_initializer='orthogonal', add_self_loops=False,
@@ -152,16 +152,16 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
         print("Config dictionary from get_config:")
         pprint.pprint(config)
 
-        expected_keys = ['name', 'trainable', 'out_channels', 'heads', 'concat',
+        expected_keys = ['name', 'trainable', 'output_dim', 'heads', 'concat',
                          'negative_slope', 'dropout', 'use_bias',
                          'kernel_initializer', 'bias_initializer', 'att_initializer',
-                         'add_self_loops', 'aggr']
+                         'add_self_loops', 'aggregator']
         for key in expected_keys:
             if key == 'dtype' and key not in config: continue
             self.assertIn(key, config, f"Key '{key}' missing from config")
 
         # Check some values
-        self.assertEqual(config['out_channels'], gat1_config_params['out_channels'])
+        self.assertEqual(config['output_dim'], gat1_config_params['output_dim'])
         self.assertEqual(config['heads'], gat1_config_params['heads'])
         self.assertEqual(config['concat'], gat1_config_params['concat'])
         self.assertEqual(config['negative_slope'], gat1_config_params['negative_slope'])
@@ -169,7 +169,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
         self.assertEqual(config['use_bias'], gat1_config_params['use_bias'])
         self.assertEqual(config['add_self_loops'], gat1_config_params['add_self_loops'])
         self.assertEqual(config['name'], gat1_config_params['name'])
-        self.assertEqual(config['aggr'], 'add')
+        self.assertEqual(config['aggregator'], 'add')
         # Check serialized initializers
         self.assertEqual(config['kernel_initializer']['class_name'], 'HeNormal')
         self.assertEqual(config['bias_initializer']['class_name'], 'Ones')
@@ -183,7 +183,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
             self.fail(f"GATv2Conv.from_config failed: {e}")
 
         # Verify reconstructed layer properties
-        self.assertEqual(gat1.out_channels, gat2.out_channels)
+        self.assertEqual(gat1.output_dim, gat2.output_dim)
         self.assertEqual(gat1.heads, gat2.heads)
         self.assertEqual(gat1.concat, gat2.concat)
         self.assertEqual(gat1.negative_slope, gat2.negative_slope)
@@ -191,7 +191,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
         self.assertEqual(gat1.use_bias, gat2.use_bias)
         self.assertEqual(gat1.add_self_loops, gat2.add_self_loops)
         self.assertEqual(gat1.name, gat2.name)
-        self.assertEqual(gat1.aggr, gat2.aggr)
+        self.assertEqual(gat1.aggregator, gat2.aggregator)
         self.assertIsInstance(gat2.kernel_initializer, initializers.HeNormal)
         self.assertIsInstance(gat2.bias_initializer, initializers.Ones)
         self.assertIsInstance(gat2.att_initializer, initializers.Orthogonal)
@@ -225,7 +225,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
 
                 # --- Instantiate PyG Layer ---
                 pyg_gat = PyGGATv2Conv(
-                    in_channels=self.input_dim, out_channels=self.output_dim,
+                    in_channels=self.input_dim, output_dim=self.output_dim,
                     heads=heads, concat=concat, negative_slope=negative_slope,
                     dropout=dropout, add_self_loops=add_loops, bias=use_bias
                 ) # On CPU

@@ -21,7 +21,7 @@ class MessagePassing(layers.Layer):
     def __init__(self, aggregator: str = "mean", **kwargs) -> None:
         super(MessagePassing, self).__init__(**kwargs)
         self.aggregator = aggregator
-        assert self.aggregator in ['mean', 'max', 'sum', 'pooling'], f"Invalid aggregation method: {self.aggregator}. Must be one of ['mean', 'max', 'sum', 'pooling']"
+        assert self.aggregator in ['mean', 'max', 'sum', 'pooling'], f"Invalid aggregator: {self.aggregator}. Must be one of ['mean', 'max', 'sum', 'pooling']"
 
     def message(self, x_i, x_j, **kwargs):
         """
@@ -110,7 +110,7 @@ class MessagePassing(layers.Layer):
         elif self.aggregator == 'sum':
             return ops.segment_sum(data=messages, segment_ids=target_idx, num_segments=num_nodes)
         else:
-            raise ValueError(f"Invalid aggregation method: {self.aggregator}")
+            raise ValueError(f"Invalid aggregator: {self.aggregator}")
 
     def propagate(self, inputs):
         """
