@@ -6,30 +6,32 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
 
 ## Features
 
--   **Flexible Message Passing:** A core `MessagePassing` layer that handles the fundamental logic of neighborhood aggregation, allowing for easy customization of message creation, aggregation, and update steps. Supports various aggregation methods (e.g., 'sum', 'mean', 'max').
--   **Standard Graph Convolutions:** Ready-to-use implementations of popular graph convolution layers:
-    -   `GCNConv`: Graph Convolutional Network layer from Kipf & Welling (2017).
-    -   `GINConv`: Graph Isomorphism Network layer from Xu et al. (2019).
-    -   `GATv2Conv`: Graph Attention Network v2 layer from Brody et al. (2021), providing dynamic attention for better expressiveness.
-    -   `SAGEConv`: GraphSAGE layer from Hamilton et al. (2017), for inductive representation learning.
--   **Data Handling:** Built-in `GraphData` class and utilities for managing graph-structured data and batching multiple graphs together.
--   **Benchmark Datasets:** Standard citation network datasets (Cora, CiteSeer, PubMed) for node classification tasks.
--   **Seamless Keras Integration:** Designed as standard Keras layers, making them easy to integrate into `keras.Sequential` or functional API models.
--   **Backend Agnostic:** Leverages Keras 3, allowing compatibility with different backends like TensorFlow, PyTorch, and JAX (ensure backend compatibility with sparse operations if needed).
--   **Example Models:** Comprehensive examples for various graph learning tasks including node classification, graph classification, and molecular property prediction.
+- **Flexible Message Passing:** A core `MessagePassing` layer that handles the fundamental logic of neighborhood aggregation, allowing for easy customization of message creation, aggregation, and update steps. Supports various aggregation methods (e.g., 'sum', 'mean', 'max').
+- **Standard Graph Convolutions:** Ready-to-use implementations of popular graph convolution layers:
+  - `GCNConv`: Graph Convolutional Network layer from Kipf & Welling (2017).
+  - `GINConv`: Graph Isomorphism Network layer from Xu et al. (2019).
+  - `GATv2Conv`: Graph Attention Network v2 layer from Brody et al. (2021), providing dynamic attention for better expressiveness.
+  - `SAGEConv`: GraphSAGE layer from Hamilton et al. (2017), for inductive representation learning.
+- **Data Handling:** Built-in `GraphData` class and utilities for managing graph-structured data and batching multiple graphs together.
+- **Benchmark Datasets:** Standard citation network datasets (Cora, CiteSeer, PubMed) for node classification tasks.
+- **Seamless Keras Integration:** Designed as standard Keras layers, making them easy to integrate into `keras.Sequential` or functional API models.
+- **Backend Agnostic:** Leverages Keras 3, allowing compatibility with different backends like TensorFlow, PyTorch, and JAX (ensure backend compatibility with sparse operations if needed).
+- **Example Models:** Comprehensive examples for various graph learning tasks including node classification, graph classification, and molecular property prediction.
 
 ## Installation
 
 1.  **Prerequisites:**
-    *   Python 3.12 or later.
-    *   Keras 3 (version 3.9.0 or later). You can install/update it using pip:
-        ```sh
-        pip install --upgrade keras>=3.9.0
-        ```
-    *   A Keras backend (TensorFlow, PyTorch, or JAX). Install your preferred backend if you haven't already (e.g., `pip install tensorflow`).
+
+    - Python 3.12 or later.
+    - Keras 3 (version 3.9.0 or later). You can install/update it using pip:
+      ```sh
+      pip install --upgrade keras>=3.9.0
+      ```
+    - A Keras backend (TensorFlow, PyTorch, or JAX). Install your preferred backend if you haven't already (e.g., `pip install tensorflow`).
 
 2.  **Install Keras Geometric:**
     Currently, you can install the library directly from the source repository:
+
     ```sh
     # Clone the repository (if you haven't already)
     git clone <your-repo-url> # Replace <your-repo-url> with the actual URL
@@ -42,7 +44,8 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
     # With development dependencies
     pip install -e ".[dev]"
     ```
-    *(Note: If you plan to publish to PyPI later, update this section accordingly.)*
+
+    _(Note: If you plan to publish to PyPI later, update this section accordingly.)_
 
 ## Core Concepts: Graph Neural Networks & Message Passing
 
@@ -109,7 +112,7 @@ node_input = keras.Input(shape=(node_features.shape[1],), name="node_features")
 edge_input = keras.Input(shape=(2, None), dtype="int32", name="edge_index") # Shape (2, num_edges)
 
 # Apply GCN layer
-# units: Dimensionality of the output node embeddings
+# output_dim: Dimensionality of the output node embeddings
 # activation: Activation function
 gcn_layer = GCNConv(output_dim=16, activation='relu')
 
