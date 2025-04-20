@@ -107,7 +107,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
                 self.assertEqual(gat.add_self_loops, add_loops)
                 self.assertEqual(gat.dropout, dropout) # Check dropout storage
                 self.assertEqual(gat.negative_slope, neg_slope)
-                self.assertEqual(gat.aggregator, 'add') # Should be forced to 'add'
+                self.assertEqual(gat.aggregator, 'sum') # Should be forced to 'sum'
 
     def test_call_shapes_variations(self):
         """Test the forward pass shape for different configurations."""
@@ -169,7 +169,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
         self.assertEqual(config['use_bias'], gat1_config_params['use_bias'])
         self.assertEqual(config['add_self_loops'], gat1_config_params['add_self_loops'])
         self.assertEqual(config['name'], gat1_config_params['name'])
-        self.assertEqual(config['aggregator'], 'add')
+        self.assertEqual(config['aggregator'], 'sum')
         # Check serialized initializers
         self.assertEqual(config['kernel_initializer']['class_name'], 'HeNormal')
         self.assertEqual(config['bias_initializer']['class_name'], 'Ones')
