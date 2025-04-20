@@ -46,7 +46,7 @@ class GINConv(MessagePassing):
         self.bias_initializer = bias_initializer
         self.activation = activation
 
-        assert self.aggregator in ['mean', 'max', 'sum'], f"Invalid aggregation method: {self.aggregator}. Must be one of ['mean', 'max', 'sum']"
+        assert self.aggregator in ['mean', 'max', 'sum'], f"Invalid aggregator: {self.aggregator}. Must be one of ['mean', 'max', 'sum']"
 
 
     def build(self, input_shape):

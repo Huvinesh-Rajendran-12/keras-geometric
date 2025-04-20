@@ -56,15 +56,15 @@ class SAGEConv(MessagePassing):
                  bias_initializer: str = 'zeros',
                  **kwargs):
 
-        # --- FIX: Add 'pooling' back to valid aggregators ---
-        valid_aggr = ['mean', 'max', 'sum', 'pooling']
-        if aggregator not in valid_aggr:
-            raise ValueError(f"Invalid aggregator '{aggregator}'. Must be one of {valid_aggr}")
+        # List of valid aggregators
+        valid_aggregators = ['mean', 'max', 'sum', 'pooling']
+        if aggregator not in valid_aggregators:
+            raise ValueError(f"Invalid aggregator '{aggregator}'. Must be one of {valid_aggregators}")
 
-        # Determine base aggregation needed for MessagePassing propagate()
+        # Determine base aggregator needed for MessagePassing propagate()
         # For 'pooling', we handle aggregation manually in propagate()
-        base_aggr = aggregator if aggregator in ['mean', 'max', 'sum'] else 'max' # Use max as base for pooling
-        super().__init__(aggregator=base_aggr, **kwargs)
+        base_aggregator = aggregator if aggregator in ['mean', 'max', 'sum'] else 'max' # Use max as base for pooling
+        super().__init__(aggregator=base_aggregator, **kwargs)
 
         # Store the originally requested aggregator
         self.aggregator = aggregator
@@ -221,7 +221,7 @@ class SAGEConv(MessagePassing):
 
     def get_config(self):
         """Serializes the layer configuration."""
-        config = super().get_config() # Includes base 'aggr'
+        config = super().get_config() # Includes base 'aggregator'
         # Store the specific aggregator used by this layer
         config['aggregator'] = self.aggregator
         config.update({
