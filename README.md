@@ -6,28 +6,32 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
 
 ## Features
 
--   **Flexible Message Passing:** A core `MessagePassing` layer that handles the fundamental logic of neighborhood aggregation, allowing for easy customization of message creation, aggregation, and update steps. Supports various aggregation methods (e.g., 'sum', 'mean', 'max').
--   **Standard Graph Convolutions:** Ready-to-use implementations of popular graph convolution layers:
-    -   `GCNConv`: Graph Convolutional Network layer from Kipf & Welling (2017).
-    -   `GINConv`: Graph Isomorphism Network layer from Xu et al. (2019).
-    -   `GATv2Conv`: Graph Attention Network v2 layer from Brody et al. (2021), providing dynamic attention for better expressiveness.
--   **Data Handling:** Built-in `GraphData` class and utilities for managing graph-structured data and batching multiple graphs together.
--   **Benchmark Datasets:** Standard citation network datasets (Cora, CiteSeer, PubMed) for node classification tasks.
--   **Seamless Keras Integration:** Designed as standard Keras layers, making them easy to integrate into `keras.Sequential` or functional API models.
--   **Backend Agnostic:** Leverages Keras 3, allowing compatibility with different backends like TensorFlow, PyTorch, and JAX (ensure backend compatibility with sparse operations if needed).
+- **Flexible Message Passing:** A core `MessagePassing` layer that handles the fundamental logic of neighborhood aggregation, allowing for easy customization of message creation, aggregation, and update steps. Supports various aggregation methods (e.g., 'sum', 'mean', 'max').
+- **Standard Graph Convolutions:** Ready-to-use implementations of popular graph convolution layers:
+  - `GCNConv`: Graph Convolutional Network layer from Kipf & Welling (2017).
+  - `GINConv`: Graph Isomorphism Network layer from Xu et al. (2019).
+  - `GATv2Conv`: Graph Attention Network v2 layer from Brody et al. (2021), providing dynamic attention for better expressiveness.
+  - `SAGEConv`: GraphSAGE layer from Hamilton et al. (2017), for inductive representation learning.
+- **Data Handling:** Built-in `GraphData` class and utilities for managing graph-structured data and batching multiple graphs together.
+- **Benchmark Datasets:** Standard citation network datasets (Cora, CiteSeer, PubMed) for node classification tasks.
+- **Seamless Keras Integration:** Designed as standard Keras layers, making them easy to integrate into `keras.Sequential` or functional API models.
+- **Backend Agnostic:** Leverages Keras 3, allowing compatibility with different backends like TensorFlow, PyTorch, and JAX (ensure backend compatibility with sparse operations if needed).
+- **Example Models:** Comprehensive examples for various graph learning tasks including node classification, graph classification, and molecular property prediction.
 
 ## Installation
 
 1.  **Prerequisites:**
-    *   Python 3.12 or later.
-    *   Keras 3 (version 3.9.0 or later). You can install/update it using pip:
-        ```sh
-        pip install --upgrade keras>=3.9.0
-        ```
-    *   A Keras backend (TensorFlow, PyTorch, or JAX). Install your preferred backend if you haven't already (e.g., `pip install tensorflow`).
+
+    - Python 3.12 or later.
+    - Keras 3 (version 3.9.0 or later). You can install/update it using pip:
+      ```sh
+      pip install --upgrade keras>=3.9.0
+      ```
+    - A Keras backend (TensorFlow, PyTorch, or JAX). Install your preferred backend if you haven't already (e.g., `pip install tensorflow`).
 
 2.  **Install Keras Geometric:**
     Currently, you can install the library directly from the source repository:
+
     ```sh
     # Clone the repository (if you haven't already)
     git clone <your-repo-url> # Replace <your-repo-url> with the actual URL
@@ -40,7 +44,8 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
     # With development dependencies
     pip install -e ".[dev]"
     ```
-    *(Note: If you plan to publish to PyPI later, update this section accordingly.)*
+
+    _(Note: If you plan to publish to PyPI later, update this section accordingly.)_
 
 ## Core Concepts: Graph Neural Networks & Message Passing
 
@@ -67,6 +72,10 @@ GIN layers (Xu et al., 2019) were designed to be maximally expressive GNNs, theo
 **Graph Attention Networks v2 (GATv2):**
 
 GATv2 layers (Brody et al., 2021) address a theoretical limitation in the original GAT architecture by using a more expressive attention mechanism that enables dynamic attention. This allows the model to assign different importance to different neighbors based on their features and the current task, improving performance on various graph learning tasks.
+
+**Graph SAGE (GraphSAGE):**
+
+GraphSAGE (Hamilton et al., 2017) is designed for inductive representation learning on large graphs. It learns a function that can generate embeddings for previously unseen nodes by sampling and aggregating features from a node's local neighborhood. GraphSAGE supports various aggregation functions (mean, max, LSTM) to capture different structural properties of the graph.
 
 ## Quick Start: Using `GCNConv`
 
@@ -103,20 +112,12 @@ node_input = keras.Input(shape=(node_features.shape[1],), name="node_features")
 edge_input = keras.Input(shape=(2, None), dtype="int32", name="edge_index") # Shape (2, num_edges)
 
 # Apply GCN layer
-# units: Dimensionality of the output node embeddings
+# output_dim: Dimensionality of the output node embeddings
 # activation: Activation function
-gcn_layer = GCNConv(units=16, activation='relu')
+gcn_layer = GCNConv(output_dim=16, activation='relu')
 
 # The GCNConv layer expects inputs as a list or tuple: [node_features, edge_index]
-# It also needs the number of nodes to correctly handle potential isolates
-# and determine the output shape.
-# Note: Passing num_nodes might vary depending on the final layer implementation details.
-# Check the layer's call signature. Assuming it's passed like this for now:
-node_embeddings = gcn_layer([node_input, edge_input], num_nodes=num_nodes)
-
-# Optional: Add more Keras layers (e.g., another GCN layer, Dense layers)
-# node_embeddings = GCNConv(units=8, activation='relu')([node_embeddings, edge_input], num_nodes=num_nodes)
-# node_embeddings = keras.layers.Dense(4)(node_embeddings)
+node_embeddings = gcn_layer([node_input, edge_input])
 
 # Create the Keras model
 model = keras.Model(inputs=[node_input, edge_input], outputs=node_embeddings)
@@ -124,17 +125,8 @@ model = keras.Model(inputs=[node_input, edge_input], outputs=node_embeddings)
 model.summary()
 
 # --- 3. Use the Model (Example: Get embeddings) ---
-# Prepare inputs for the model
-# Note: Keras functional API often expects inputs as a dictionary or list
-# matching the Input layers.
-input_data = {
-    "node_features": node_features,
-    "edge_index": edge_index
-}
-# Or as a list: [node_features, edge_index]
-
 # Get the node embeddings
-output_embeddings = model.predict(input_data)
+output_embeddings = model.predict([node_features, edge_index])
 
 print("Input Node Features Shape:", node_features.shape)
 print("Edge Index Shape:", edge_index.shape)
@@ -142,46 +134,27 @@ print("Output Node Embeddings Shape:", output_embeddings.shape)
 # Expected output shape: (num_nodes, units) -> (4, 16)
 ```
 
-## Using `GATv2Conv`
+## Example Models for Graph Learning Tasks
 
-Here's an example of using the `GATv2Conv` layer with multi-head attention:
+In the `examples/` directory, you'll find a collection of example models for various graph learning tasks:
 
-```python
-import keras
-import numpy as np
-from keras_geometric import GATv2Conv
+### Basic Examples
 
-# ... [Same graph data setup as above] ...
+- `basic_gcn_example.py`: A minimal example showing how to use GCN for node classification on a synthetic graph
 
-# Input layers
-node_input = keras.Input(shape=(node_features.shape[1],), name="node_features")
-edge_input = keras.Input(shape=(2, None), dtype="int32", name="edge_index")
+### Node Classification
 
-# Apply GATv2 layer with 2 attention heads
-gatv2_layer = GATv2Conv(
-    output_dim=16,
-    heads=2,
-    concat=True,  # Concatenate attention heads
-    dropout_rate=0.2,
-    negative_slope=0.2
-)
+- `node_classification/gcn_citation.py`: Node classification on the Cora citation network using GCN
 
-# The GATv2Conv layer expects inputs as a list: [node_features, edge_index]
-node_embeddings = gatv2_layer([node_input, edge_input])
+### Molecular Property Prediction
 
-# Apply a second GATv2 layer that averages the attention heads
-output_layer = GATv2Conv(
-    output_dim=4,
-    heads=2,
-    concat=False,  # Average attention heads instead of concatenating
-    dropout_rate=0.2
-)([node_embeddings, edge_input])
+- `molecular_property_prediction/gin_molecule_classification.py`: Using Graph Isomorphism Networks (GIN) for molecular property prediction
 
-# Create the Keras model
-model = keras.Model(inputs=[node_input, edge_input], outputs=output_layer)
+### Graph Classification
 
-# ... [Rest of the code similar to the GCN example] ...
-```
+- `graph_classification/multi_gnn_graph_classification.py`: A multi-branch GNN model that combines GCN, GAT and GraphSAGE for graph classification
+
+These examples demonstrate how to implement various graph learning tasks and can serve as templates for your own applications. See the `examples/README.md` file for more details about each example.
 
 ## Working with Datasets
 
@@ -203,7 +176,7 @@ edge_index = graph.edge_index  # Edge connectivity
 
 # Use with your GNN model
 model.fit(
-    {"node_features": x, "edge_index": edge_index},
+    [x, edge_index],
     y,  # Target node labels
     epochs=200,
     batch_size=1  # Process the entire graph as one batch
@@ -235,3 +208,4 @@ If you use this library in your research, please cite the respective papers for 
 - GCN: Kipf & Welling, [Semi-Supervised Classification with Graph Convolutional Networks](https://arxiv.org/abs/1609.02907) (ICLR 2017)
 - GIN: Xu et al., [How Powerful are Graph Neural Networks?](https://arxiv.org/abs/1810.00826) (ICLR 2019)
 - GATv2: Brody et al., [How Attentive are Graph Attention Networks?](https://arxiv.org/abs/2105.14491) (ICLR 2022)
+- GraphSAGE: Hamilton et al., [Inductive Representation Learning on Large Graphs](https://arxiv.org/abs/1706.02216) (NeurIPS 2017)
