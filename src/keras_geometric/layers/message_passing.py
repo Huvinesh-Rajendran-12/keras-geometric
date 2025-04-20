@@ -2,6 +2,22 @@ from keras import layers, ops
 
 
 class MessagePassing(layers.Layer):
+    """
+    Base class for all message passing graph neural network layers.
+
+    This class implements the general message passing framework that consists of three steps:
+    1. Message computation: Compute messages between connected nodes
+    2. Aggregation: Aggregate messages from neighbors for each node
+    3. Update: Update node features based on aggregated messages
+
+    Derived classes can customize these steps by overriding the `message`, `aggregate`,
+    and `update` methods.
+
+    Args:
+        aggregator: The aggregation method to use. Must be one of ['mean', 'max', 'sum', 'pooling'].
+            Defaults to 'mean'.
+        **kwargs: Additional arguments passed to the Keras Layer base class.
+    """
     def __init__(self, aggregator: str = "mean", **kwargs) -> None:
         super(MessagePassing, self).__init__(**kwargs)
         self.aggregator = aggregator
@@ -13,35 +29,47 @@ class MessagePassing(layers.Layer):
         Default implementation returns x_j, which represents the features of the source node (neighbors).
 
         Args:
-            x_i: Features of the target node [E, F]
-            x_j: Features of the source node (neighbours) [E, F]
+            x_i: Tensor of shape [E, F] containing features of the target nodes.
+                E is the number of edges, F is the number of features.
+            x_j: Tensor of shape [E, F] containing features of the source nodes (neighbors).
+            **kwargs: Additional arguments that might be used by derived classes.
+
         Returns:
-            Messages to be aggregated [E, F]
+            Tensor of shape [E, F] containing the computed messages for each edge.
         """
         return x_j
 
     def update(self, aggregated):
         """
         Update node features based on aggregated messages.
-        Default implementation returns the aggregated messages.
+        Default implementation returns the aggregated messages without modification.
 
         Args:
-            aggregated: [N, F]
+            aggregated: Tensor of shape [N, F] containing the aggregated messages for each node.
+                N is the number of nodes, F is the number of features.
+
         Returns:
-            Updated node features [N, F]
+            Tensor of shape [N, F] containing the updated node features.
         """
         return aggregated
 
     def aggregate(self, messages, target_idx, num_nodes):
         """
-        Aggregate messages based on target indices.
+        Aggregate messages based on target indices using the specified aggregation method.
+        Handles different aggregation types (mean, max, sum) and special cases like empty graphs.
 
         Args:
-            messages: [E, F]
-            target_idx: [E]
-            num_nodes: Number of nodes in the graph
+            messages: Tensor of shape [E, F] containing the messages to aggregate.
+                E is the number of edges, F is the number of features.
+            target_idx: Tensor of shape [E] containing the target node indices for each message.
+            num_nodes: Integer specifying the total number of nodes in the graph.
+
         Returns:
-            Aggregated features for each node [N, F]
+            Tensor of shape [N, F] containing the aggregated features for each node.
+            N is the number of nodes, F is the number of features.
+
+        Raises:
+            ValueError: If the specified aggregation method is not supported.
         """
         # Handle empty edge case - if there are no edges, return zeros
         if ops.shape(messages)[0] == 0:
@@ -85,15 +113,23 @@ class MessagePassing(layers.Layer):
 
     def propagate(self, inputs):
         """
-        Propagate messages through the graph.
-        This method is called in the call() method.
+        Propagate messages through the graph by executing the full message passing flow:
+        1. Extract node features and edge indices
+        2. Compute messages between connected nodes
+        3. Aggregate messages for each target node
+        4. Update node features based on aggregated messages
+
+        This method is called by the `call()` method and orchestrates the message passing process.
 
         Args:
-            inputs: List[x, edge_idx]
-                - x: [N, F]
-                - edge_idx: [2, E]
+            inputs: List containing [x, edge_idx]
+                - x: Tensor of shape [N, F] containing node features.
+                  N is the number of nodes, F is the number of features.
+                - edge_idx: Tensor of shape [2, E] containing edge indices as [source_nodes, target_nodes].
+                  E is the number of edges.
+
         Returns:
-            [N, F]
+            Tensor of shape [N, F] containing the updated node features after message passing.
         """
         x, edge_idx = inputs
         N = ops.shape(x)[0]  # Number of nodes
@@ -113,12 +149,28 @@ class MessagePassing(layers.Layer):
         return updates
 
     def call(self, inputs):
+        """
+        Forward pass for the message passing layer.
+
+        Args:
+            inputs: List or tuple containing [x, edge_idx]
+                - x: Tensor of shape [N, F] containing node features
+                - edge_idx: Tensor of shape [2, E] containing edge indices
+
+        Returns:
+            Tensor of shape [N, F] containing the updated node features
+        """
         x, edge_idx = inputs
         edge_idx = ops.cast(edge_idx, dtype='int32')
         return self.propagate([x, edge_idx])
 
     def get_config(self):
-        config = super().get_config()
+        """
+        Returns the layer configuration for serialization.
+
+        Returns:
+            Dictionary containing the layer configuration
+        """
         config = super().get_config()
         config.update({
             'aggregator': self.aggregator
