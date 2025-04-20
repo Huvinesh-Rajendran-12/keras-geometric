@@ -246,7 +246,9 @@ class GATv2Conv(MessagePassing):
         """
         # Make a copy of the config to avoid modifying the original
         config_copy = config.copy()
-        # Remove 'aggr' since it's passed explicitly in __init__
+        # Remove 'aggr' and 'aggregator' since 'aggregator' is passed explicitly in __init__
         if 'aggr' in config_copy:
             config_copy.pop('aggr')
+        if 'aggregator' in config_copy:
+            config_copy.pop('aggregator')
         return cls(**config_copy)

@@ -17,7 +17,7 @@ class GINConv(MessagePassing):
     Args:
         output_dim (int): Dimensionality of the output features.
         mlp_hidden (list[int]): List of hidden layer dimensions for the MLP.
-        aggr (str, optional): Aggregation method. Defaults to 'mean'.
+        aggregator (str, optional): Aggregation method. Defaults to 'mean'.
             Must be one of ['mean', 'max', 'sum'].
         use_bias (bool, optional): Whether to use bias in dense layers. Defaults to True.
         kernel_initializer (str, optional): Initializer for kernel weights.
@@ -32,22 +32,21 @@ class GINConv(MessagePassing):
     def __init__(self,
             output_dim: int,
             mlp_hidden: list[int],
-            aggr: str = 'mean',
+            aggregator: str = 'mean',
             use_bias: bool = True,
             kernel_initializer: str = 'glorot_uniform',
             bias_initializer: str = 'zeros',
             activation: str = 'relu',
             **kwargs):
-        super(GINConv, self).__init__(aggregator=aggr, **kwargs)
+        super(GINConv, self).__init__(aggregator=aggregator, **kwargs)
         self.output_dim = output_dim
         self.mlp_hidden = mlp_hidden
-        self.aggregator = aggr
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
         self.activation = activation
 
-        assert self.aggr in ['mean', 'max', 'sum'], f"Invalid aggregation method: {self.aggr}. Must be one of ['mean', 'max', 'sum']"
+        assert self.aggregator in ['mean', 'max', 'sum'], f"Invalid aggregation method: {self.aggregator}. Must be one of ['mean', 'max', 'sum']"
 
 
     def build(self, input_shape):
@@ -127,7 +126,7 @@ class GINConv(MessagePassing):
         """
         # Make a copy of the config to avoid modifying the original
         config_copy = config.copy()
-        # Remove 'aggr' since it's passed explicitly in __init__
-        if 'aggr' in config_copy:
-            config_copy.pop('aggr')
+        # Remove 'aggregator' since it's passed explicitly in __init__
+        if 'aggregator' in config_copy:
+            config_copy.pop('aggregator')
         return cls(**config_copy)
