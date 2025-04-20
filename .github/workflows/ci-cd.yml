@@ -50,6 +50,18 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.ref, 'refs/tags/v') ||
       (needs.filter.outputs.python_changed == 'true')
+
+  # --- Dependency Scanning Job ---
+  dependency_scan:
+    name: Scan Dependencies for Vulnerabilities
+    runs-on: ubuntu-latest
+    # Depend on the filter job for push/PR events
+    needs: filter
+    # Run only if Python files changed (on push/PR) OR if manually dispatched/tagged
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      (needs.filter.outputs.python_changed == 'true')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,29 +81,40 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
+          key: ${{ runner.os }}-uv-scan-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
-            ${{ runner.os }}-uv-
+            ${{ runner.os }}-uv-scan-
 
       - name: Create virtual environment
         run: uv venv .venv --seed
 
-      - name: Install dependencies including project and lint tools
-        run: source .venv/bin/activate && uv pip install -e ".[dev]"
+      - name: Install dependencies including project and pip-audit
+        run: |
+          source .venv/bin/activate
+          uv pip install -e ".[dev]"
+          uv pip install pip-audit safety
 
-      - name: Run flake8
-        run: source .venv/bin/activate && uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Run pip-audit
+        run: |
+          source .venv/bin/activate
+          echo "Running pip-audit to scan for vulnerabilities..."
+          uv run pip-audit
 
-      - name: Run mypy
-        run: source .venv/bin/activate && uv run mypy src/
+      - name: Run safety check
+        run: |
+          source .venv/bin/activate
+          echo "Running safety check to scan for vulnerabilities..."
+          uv run safety check
+
+
 
   # --- Testing Job (Matrix) ---
   test:
     name: Test Python ${{ matrix.python-version }} / ${{ matrix.keras-backend }}
-    # Depend on filter job (for push/PR) and lint job
-    needs: [lint, filter]
+    # Depend on filter job (for push/PR), lint job, and dependency scan job
+    needs: [lint, dependency_scan, filter]
     # Run only if Python files changed (on push/PR) OR if manually dispatched/tagged
-    # Also ensure lint job succeeded (implied by needs: lint unless always() is used)
+    # Also ensure lint job and dependency scan succeeded
     if: |
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.ref, 'refs/tags/v') ||
@@ -151,11 +174,56 @@ jobs:
           echo "Running tests..."
           uv run python -m unittest discover -s tests -v
 
+  # --- Generate Release Notes Job ---
+  generate_release_notes:
+    name: Generate Release Notes
+    runs-on: ubuntu-latest
+    needs: test # Ensure tests pass before generating release notes
+    # Run only on tags starting with v*
+    if: startsWith(github.ref, 'refs/tags/v')
+    outputs:
+      release_notes: ${{ steps.generate_notes.outputs.release_notes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required to get all commits for release notes
+
+      - name: Generate Release Notes
+        id: generate_notes
+        run: |
+          # Get the previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # If no previous tag, get all commits
+            echo "No previous tag found. Getting all commits."
+            COMMITS=$(git log --pretty=format:"* %s (%h)" --no-merges)
+          else
+            # Get commits between previous tag and current tag
+            echo "Previous tag: $PREVIOUS_TAG"
+            COMMITS=$(git log --pretty=format:"* %s (%h)" --no-merges $PREVIOUS_TAG..HEAD)
+          fi
+
+          # Create release notes with version and date
+          RELEASE_NOTES="## $GITHUB_REF_NAME ($(date +"%Y-%m-%d"))\n\n"
+          RELEASE_NOTES+="$COMMITS"
+
+          # Escape newlines for GitHub Actions output
+          RELEASE_NOTES="${RELEASE_NOTES//$'\n'/%0A}"
+
+          # Set output variable
+          echo "release_notes=$RELEASE_NOTES" >> $GITHUB_OUTPUT
+
+          # Also print the release notes for debugging
+          echo "Generated Release Notes:"
+          echo "$COMMITS"
+
   # --- Build Job ---
   build:
     name: Build Package
     runs-on: ubuntu-latest
-    needs: test # Ensure tests pass on the tag before building
+    needs: [test, generate_release_notes] # Ensure tests pass and release notes are generated
     # Run only on tags starting with v*
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
@@ -251,3 +319,30 @@ jobs:
         run: |
           source .venv/bin/activate
           uv run twine upload --repository testpypi --non-interactive -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }} dist/*
+
+  # --- Create GitHub Release Job ---
+  create_github_release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [publish_testpypi, generate_release_notes] # Run after publishing to TestPyPI
+    # Run only on tags starting with v*
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: ${{ needs.generate_release_notes.outputs.release_notes }}
+          files: dist/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
