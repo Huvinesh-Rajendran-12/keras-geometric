@@ -31,6 +31,7 @@ class MessagePassing(layers.Layer):
         Args:
             x_i: Tensor of shape [E, F] containing features of the target nodes.
                 E is the number of edges, F is the number of features.
+                Not used in the default implementation but available for derived classes.
             x_j: Tensor of shape [E, F] containing features of the source nodes (neighbors).
             **kwargs: Additional arguments that might be used by derived classes.
 
