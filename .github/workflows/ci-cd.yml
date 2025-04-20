@@ -39,14 +39,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-
 
-      - name: Install dependencies including project and lint tools
-        run: uv pip install -e ".[dev]" # Installs flake8, mypy via dev extra
+      # Create venv (might be cached but ensure it exists)
+      - name: Create virtual environment
+        run: uv venv .venv --seed
 
+      # Install dependencies within the activated venv
+      - name: Install dependencies including project and lint tools
+        run: source .venv/bin/activate && uv pip install -e ".[dev]"
+
+      # Run linters within the activated venv
       - name: Run flake8
-        run: uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        run: source .venv/bin/activate && uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Run mypy
-        run: uv run mypy src/
+        run: source .venv/bin/activate && uv run mypy src/
 
   # --- Testing Job (Matrix) ---
   test:
@@ -86,24 +92,32 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          # Include python version and backend in cache key
           key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ matrix.keras-backend }}-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ matrix.keras-backend }}-
 
+      # Create venv (might be cached but ensure it exists)
+      - name: Create virtual environment
+        run: uv venv .venv --seed
+
+      # Install dependencies within the activated venv
       - name: Install backend dependencies
-        run: uv pip install ${{ matrix.backend-deps }}
+        run: source .venv/bin/activate && uv pip install ${{ matrix.backend-deps }}
 
       - name: Install project + test dependencies
-        run: uv pip install -e ".[test]"
+        run: source .venv/bin/activate && uv pip install -e ".[test]"
 
+      # Run tests within the activated venv
       - name: Run tests
-        run: uv run python -m unittest discover -s tests -v
         env:
-          # Set the backend for Keras
           KERAS_BACKEND: ${{ matrix.keras-backend }}
-          # Potentially needed if TF uses GPU by default on runners
-          # CUDA_VISIBLE_DEVICES: ""
+          # CUDA_VISIBLE_DEVICES: "" # If needed
+        run: |
+          source .venv/bin/activate
+          echo "Using Keras backend: $KERAS_BACKEND"
+          python -c "import keras; print(keras.backend.backend())" # Verify backend
+          echo "Running tests..."
+          uv run python -m unittest discover -s tests -v
 
   # --- Build Job ---
   build:
@@ -136,11 +150,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-build-
 
-      - name: Install build dependencies
-        run: uv pip install build hatch-vcs
+      # Create venv (might be cached but ensure it exists)
+      - name: Create virtual environment
+        run: uv venv .venv --seed
 
+      # Install build dependencies within the activated venv
+      - name: Install build dependencies
+        run: source .venv/bin/activate && uv pip install build hatch-vcs
+
+      # Build package within the activated venv
       - name: Build package
-        run: uv run python -m build
+        run: |
+          source .venv/bin/activate
+          echo "Building package for tag: $GITHUB_REF_NAME" # Use GITHUB_REF_NAME for tag
+          # Ensure git history/tags are available for hatch-vcs (checkout already did this)
+          uv run python -m build
 
       - name: Upload distribution artifacts
         uses: actions/upload-artifact@v4
@@ -148,7 +172,7 @@ jobs:
           name: python-package-distributions
           path: dist/
 
-  # --- Publish to TestPyPI Job --- ## Renamed Job ##
+  # --- Publish to TestPyPI Job ---
   publish_testpypi:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
@@ -157,8 +181,6 @@ jobs:
     environment: # Optional: Define TestPyPI environment
       name: testpypi
       url: https://test.pypi.org/p/keras-geometric # Link to your TestPyPI project
-    # permissions: # Typically not needed for token upload to TestPyPI
-    # id-token: write
 
     steps:
       - name: Set up Python 3.11
@@ -180,8 +202,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-publish-
 
+      # Create venv (might be cached but ensure it exists)
+      - name: Create virtual environment
+        run: uv venv .venv --seed
+
+      # Install twine within the activated venv
       - name: Install Twine
-        run: uv pip install twine
+        run: source .venv/bin/activate && uv pip install twine
 
       - name: Download distribution artifacts
         uses: actions/download-artifact@v4
@@ -192,6 +219,8 @@ jobs:
       - name: Check artifacts
         run: ls -l dist/
 
-      - name: Publish package to TestPyPI ## Modified command ##
-        # Use __token__ and the TestPyPI token stored in secrets
-        run: uv run twine upload --repository testpypi --non-interactive -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }} dist/*
+      # Publish package within the activated venv
+      - name: Publish package to TestPyPI
+        run: |
+          source .venv/bin/activate
+          uv run twine upload --repository testpypi --non-interactive -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }} dist/*
