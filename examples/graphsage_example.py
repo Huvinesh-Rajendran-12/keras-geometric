@@ -62,7 +62,8 @@ model.summary()
 # --- 3. Forward Pass ---
 print("\n--- Forward Pass ---")
 # Get node embeddings
-node_embeddings = model.predict([node_features, edge_index])
+# Note: We need to pass the edge_index as is, not wrapped in another list/array
+node_embeddings = model.predict({"node_features": node_features, "edge_index": edge_index})
 print("Node embeddings shape:", node_embeddings.shape)
 print("Node embeddings (normalized to unit vectors):")
 print(node_embeddings)

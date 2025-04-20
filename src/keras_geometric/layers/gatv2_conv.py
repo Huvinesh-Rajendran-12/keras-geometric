@@ -85,7 +85,7 @@ class GATv2Conv(MessagePassing):
         # Attention weights - the key difference from GAT
         # is that we apply this after linear transform and concatenation
         self.att = self.add_weight(
-            shape=(1, self.heads, self.hidden_dim),  # Use hidden_dim instead of hidden_channels
+            shape=(1, self.heads, self.hidden_dim),  # Use hidden_dim instead of output_dim
             initializer=self.kernel_initializer_obj,
             name="att",
             trainable=True
@@ -126,7 +126,7 @@ class GATv2Conv(MessagePassing):
 
     def _compute_attention(self, h_i, h_j, target_idx, num_nodes):
         """
-        Forward pass with attention mechanism.
+        Compute attention coefficients for each edge.
 
         Args:
             h_i: [E, heads, hidden_dim] - Features of target nodes
@@ -152,6 +152,7 @@ class GATv2Conv(MessagePassing):
         # This is equivalent to sum(z_ij * att, axis=-1)
         attn_scores = ops.sum(z_ij * self.att, axis=-1)  # [E, heads]
 
+        # Compute softmax of attention scores grouped by target nodes
         alpha = self._softmax_by_target(attn_scores, target_idx, num_nodes)
 
         return ops.expand_dims(alpha, -1) # (E, H, 1)
