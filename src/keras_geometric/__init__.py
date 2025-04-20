@@ -15,7 +15,8 @@ from .utils.main import add_self_loops, compute_gcn_normalization
 
 # Datasets (when available)
 try:
-    from .datasets.citation import CiteSeer, Cora, PubMed
+    from .datasets.citation import CiteSeer, PubMed
+    from .datasets.cora import CoraDataset
     __all__ = [
         "__version__",
         # Layers
@@ -30,7 +31,7 @@ try:
         "GraphData",
         "batch_graphs",
         # Datasets
-        "Cora",
+        "CoraDataset",
         "CiteSeer",
         "PubMed",
     ]

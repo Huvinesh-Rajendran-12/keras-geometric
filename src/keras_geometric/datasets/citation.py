@@ -1,9 +1,7 @@
-import io
 import os
 import pickle
 import urllib.request
-import zipfile
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -41,10 +39,6 @@ class CitationDataset(Dataset):
     """
 
     available_datasets = {
-        'cora': {
-            'url': 'https://github.com/kimiyoung/planetoid/raw/master/data/ind.cora.{}.pkl',
-            'files': ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph', 'test.index'],
-        },
         'citeseer': {
             'url': 'https://github.com/kimiyoung/planetoid/raw/master/data/ind.citeseer.{}.pkl',
             'files': ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph', 'test.index'],
@@ -132,7 +126,8 @@ class CitationDataset(Dataset):
         # Ensure y is in the correct order
         y_sorted = np.zeros_like(y)
         y_sorted[test_idx_sorted] = y[test_idx]
-        y_sorted[~np.in1d(np.arange(y.shape[0]), test_idx_sorted)] = y[~np.in1d(np.arange(y.shape[0]), test_idx)]
+        mask = ~np.isin(np.arange(y.shape[0]), test_idx_sorted)
+        y_sorted[mask] = y[mask]
         y = y_sorted
 
         # Convert graph dict to edge index
@@ -174,42 +169,6 @@ class CitationDataset(Dataset):
 
         return edge_index
 
-
-class Cora(CitationDataset):
-    """
-    The Cora citation network dataset.
-
-    Nodes represent scientific publications and edges represent citations.
-    Node features are bag-of-words vectors of the publication text.
-    The task is to classify each publication into one of 7 classes.
-
-    Stats:
-        - 2708 nodes
-        - 5429 edges
-        - 7 classes
-        - 1433 features per node
-
-    Example:
-        ```python
-        # Load the Cora dataset
-        dataset = Cora(root="data")
-
-        # Get the single graph
-        graph = dataset[0]
-
-        # Get node features and labels
-        x = graph.x  # Shape [2708, 1433]
-        y = graph.y  # Shape [2708]
-        edge_index = graph.edge_index  # Shape [2, 10858]
-        ```
-    """
-    def __init__(
-        self,
-        root: str = "data",
-        transform: Optional[Callable] = None,
-        pre_transform: Optional[Callable] = None,
-    ):
-        super().__init__(root, "cora", transform, pre_transform)
 
 
 class CiteSeer(CitationDataset):
