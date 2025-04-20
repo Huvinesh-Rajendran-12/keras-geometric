@@ -37,19 +37,8 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
                  add_self_loops: bool = True,
                  normalize: bool = True,
                  **kwargs):
-        # --- FIX: Remove explicit aggr='add' here. Let kwargs pass it from config. ---
-        # Ensure 'aggr' from kwargs doesn't conflict if passed manually AND via config
-        # Best practice: Let config drive deserialization.
-        # GCN *requires* 'add', so we set it after super() if needed,
-        # but rely on base class __init__ to handle 'aggr' from kwargs first.
-        # The base class default or value from config should be used.
-        # We then force self.aggr = 'sum' if necessary, although GCN logic
-        # now relies on the overridden aggregate method which uses sum anyway.
-        # Pass 'sum' directly to the base class initializer.
-        super().__init__(aggregator='sum', **kwargs) # Pass aggregator='sum' directly
-
-        # Base class __init__ handles setting self.aggregator based on the 'aggregator' argument.
-        # No need to set self.aggregator = 'sum' again here.
+        # GCN requires sum aggregation, so we pass it directly to the base class
+        super().__init__(aggregator='sum', **kwargs)
 
         self.output_dim = output_dim
         self.use_bias = use_bias
@@ -58,14 +47,17 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
         self.add_self_loops = add_self_loops
         self.normalize = normalize
 
-        # Pop custom args if they were passed in kwargs, base layer doesn't expect them
-        # (This might not be needed if they aren't passed via kwargs anyway)
-        # kwargs.pop('add_self_loops', None)
-        # kwargs.pop('normalize', None)
-
 
     def build(self, input_shape):
-        """Build the layer weights (kernel W and bias b)."""
+        """Build the layer weights (kernel W and bias b).
+
+        Args:
+            input_shape: List of input shapes [node_features_shape, edge_index_shape]
+                where node_features_shape is (N, F) with N nodes and F features
+
+        Raises:
+            ValueError: If the input shape is not as expected
+        """
         feat_shape = input_shape[0]
         if not isinstance(feat_shape, (list, tuple)) or len(feat_shape) != 2:
              raise ValueError(f"Expected features input shape like (N, F), but got {feat_shape}")
@@ -86,14 +78,37 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
             self.bias = None
 
     def update(self, aggregated):
-        """Overrides base update to add bias."""
+        """Overrides base update to add bias.
+
+        Args:
+            aggregated: Tensor of shape [N, F] containing the aggregated messages
+
+        Returns:
+            Tensor of shape [N, F] containing the updated node features with bias added
+        """
         if self.use_bias:
             return ops.add(aggregated, self.bias)
         else:
             return aggregated
 
     def propagate(self, inputs):
-        """Custom propagation for GCN using MessagePassing structure."""
+        """Custom propagation for GCN using MessagePassing structure.
+
+        This method implements the GCN-specific message passing logic:
+        1. Transform node features using the weight matrix
+        2. Compute messages as transformed features weighted by edge weights
+        3. Aggregate messages for each target node
+        4. Apply bias (in the update step)
+
+        Args:
+            inputs: Tuple containing (x, edge_index, edge_weight)
+                - x: Tensor of shape [N, F] containing node features
+                - edge_index: Tensor of shape [2, E] containing edge indices
+                - edge_weight: Tensor of shape [E] containing normalized edge weights
+
+        Returns:
+            Tensor of shape [N, output_dim] containing the updated node features
+        """
         x, edge_index, edge_weight = inputs
         N = ops.shape(x)[0]
         x_transformed = ops.matmul(x, self.kernel)
@@ -106,7 +121,22 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
         return updated
 
     def call(self, inputs):
-        """Performs the GCN convolution using the MessagePassing structure."""
+        """Performs the GCN convolution using the MessagePassing structure.
+
+        This method handles the preprocessing steps for GCN:
+        1. Ensure edge_index has the correct shape
+        2. Add self-loops if specified
+        3. Compute normalization coefficients if specified
+        4. Call propagate with the prepared inputs
+
+        Args:
+            inputs: List containing [x, edge_index]
+                - x: Tensor of shape [N, F] containing node features
+                - edge_index: Tensor of shape [2, E] containing edge indices
+
+        Returns:
+            Tensor of shape [N, output_dim] containing the updated node features
+        """
         x, edge_index = inputs
         num_nodes = ops.shape(x)[0]
         edge_index = ops.cast(edge_index, dtype='int32')
@@ -131,9 +161,7 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
 
     def get_config(self):
         """Serializes the layer configuration."""
-        config = super().get_config() # Base config includes 'aggr'
-        # Ensure aggr is 'add' if base class didn't set it correctly (shouldn't happen)
-        config['aggr'] = 'sum'
+        config = super().get_config() # Base config includes 'aggregator'
         config.update({
             'output_dim': self.output_dim,
             'use_bias': self.use_bias,
@@ -142,14 +170,18 @@ class GCNConv(MessagePassing): # Inherit from MessagePassing
             'add_self_loops': self.add_self_loops,
             'normalize': self.normalize
         })
-        # --- FIX: Remove redundant check ---
-        # if 'aggr' not in config:
-        #      config['aggr'] = self.aggr # Should be 'add'
         return config
 
     @classmethod
     def from_config(cls, config):
-        """Creates a layer from its config."""
+        """Creates a layer from its config.
+
+        Args:
+            config: Dictionary containing the layer configuration
+
+        Returns:
+            A new GCNConv layer instance
+        """
         # Make a copy of the config to avoid modifying the original
         config_copy = config.copy()
         # Remove 'aggr' and 'aggregator' since 'aggregator' is passed explicitly in __init__

@@ -62,22 +62,16 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
         self.num_nodes = 5
         self.input_dim = 8
         self.output_dim = 12
-        self.num_nodes = 5
-        self.input_dim = 8
-        self.output_dim = 12
         self.bias_options = [True, False]
         self.normalization_options = [True, False]
         self.selfloop_options = [True, False]
 
-        np.random.seed(43)
         np.random.seed(43)
         if TORCH_AVAILABLE:
             torch.manual_seed(43)
 
         self.features_np = np.random.randn(self.num_nodes, self.input_dim).astype(np.float32)
         self.edge_index_np = np.array([
-            [0, 1, 1, 2, 3, 4, 0, 3],
-            [1, 0, 2, 1, 4, 3, 2, 2],
             [0, 1, 1, 2, 3, 4, 0, 3],
             [1, 0, 2, 1, 4, 3, 2, 2]
         ], dtype=np.int64)
@@ -146,7 +140,6 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
             self.assertIn(key, config, f"Key '{key}' missing from config")
 
         # Check basic config values
-        # Check basic config values
         self.assertEqual(config['output_dim'], gcn1_config_params['output_dim'])
         self.assertEqual(config['use_bias'], gcn1_config_params['use_bias'])
         self.assertEqual(config['normalize'], gcn1_config_params['normalize'])
@@ -174,7 +167,6 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
         try:
             gcn2 = GCNConv.from_config(config)
         except Exception as e:
-            print("\n--- FAILED CONFIG ---"); pprint.pprint(config); print("--- END FAILED CONFIG ---")
             print("\n--- FAILED CONFIG ---"); pprint.pprint(config); print("--- END FAILED CONFIG ---")
             self.fail(f"GCNConv.from_config failed: {e}")
 
@@ -239,22 +231,7 @@ class TestGCNConvComprehensive(unittest.TestCase): # Renamed class
                 else:
                      self.assertTrue('bias' not in pyg_params or pyg_params.get('bias') is None, f"PyG layer has bias when use_bias=False for {subtest_msg}")
                      self.assertTrue('lin.bias' not in pyg_params or pyg_params.get('lin.bias') is None, f"PyG layer has lin.bias when use_bias=False for {subtest_msg}")
-                print("PyG Parameter Names:", pyg_params.keys()) # DEBUG Print
-                pyg_weight_param_name = None
-                if 'lin.weight' in pyg_params: pyg_weight_param_name = 'lin.weight'
-                elif 'weight' in pyg_params: pyg_weight_param_name = 'weight'
-                else:
-                    subtest_msg = f"bias={use_bias}, norm={normalize}, loops={add_loops}"
-                    self.fail(f"PyG layer missing weight parameter ('lin.weight' or 'weight') for {subtest_msg}")
-
-                pyg_bias_param_name = None
-                if use_bias:
-                    if 'bias' in pyg_params: pyg_bias_param_name = 'bias'
-                    elif 'lin.bias' in pyg_params: pyg_bias_param_name = 'lin.bias'
-                    else: self.fail(f"PyG layer missing bias parameter ('bias' or 'lin.bias') for {subtest_msg}")
-                else:
-                     self.assertTrue('bias' not in pyg_params or pyg_params.get('bias') is None, f"PyG layer has bias when use_bias=False for {subtest_msg}")
-                     self.assertTrue('lin.bias' not in pyg_params or pyg_params.get('lin.bias') is None, f"PyG layer has lin.bias when use_bias=False for {subtest_msg}")
+                # PyG parameter names already printed above
 
                 print(f"Syncing weights (PyG weight='{pyg_weight_param_name}', bias='{pyg_bias_param_name if use_bias else 'None'}')...")
                 if use_bias:
