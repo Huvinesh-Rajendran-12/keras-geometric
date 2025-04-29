@@ -1,288 +1,255 @@
-from keras import initializers, layers, ops
+from typing import Any, Optional, Tuple
 
+import keras
+import numpy as np  # For -np.inf
+from keras import activations, initializers, layers, ops
+
+# Assuming MessagePassing is in the same directory
 from .message_passing import MessagePassing
+
+# Assuming utils are in sibling directory 'utils' relative to package root
+try:
+    from keras_geometric.utils.main import add_self_loops
+except ImportError:
+    # Fallback: Define inline if utils import fails (useful for testing standalone)
+    print("Warning: Could not import add_self_loops from utils. Using inline definition.")
+    def add_self_loops(edge_index, num_nodes):
+        loop_indices = ops.arange(0, num_nodes, dtype=edge_index.dtype)
+        self_loops = ops.stack([loop_indices, loop_indices], axis=0)
+        return ops.concatenate([edge_index, self_loops], axis=1)
 
 
 class GATv2Conv(MessagePassing):
     """
     Graph Attention Network v2 (GATv2) Convolution Layer.
 
-    This layer implements the improved Graph Attention Network convolution
+    Implements the improved Graph Attention Network convolution
     from the paper "How Attentive are Graph Attention Networks?"
     (https://arxiv.org/abs/2105.14491).
 
-    GATv2 addresses a theoretical limitation in the original GAT by using
-    a more expressive attention mechanism that allows for dynamic attention.
+    Bias handling aims to match PyTorch Geometric: bias is applied in the
+    initial linear transform AND as a final additive term if use_bias=True.
 
     Args:
-        output_dim (int): Dimensionality of the output features.
+        output_dim (int): Dimensionality of the output features per head.
         heads (int, optional): Number of multi-head attentions. Defaults to 1.
-        concat (bool, optional): Whether to concatenate or average multi-head
-            attentions. Defaults to True.
+        concat (bool, optional): Whether to concatenate or average multi-head attentions. Defaults to True.
         negative_slope (float, optional): LeakyReLU negative slope. Defaults to 0.2.
-        dropout (float, optional): Dropout rate for attention coefficients.
-            Defaults to 0.0.
-        use_bias (bool, optional): Whether to use bias. Defaults to True.
-        kernel_initializer (str, optional): Initializer for kernel weights.
-            Defaults to 'glorot_uniform'.
-        bias_initializer (str, optional): Initializer for bias weights.
-            Defaults to 'zeros'.
-        add_self_loops (bool, optional): Whether to add self-loops to the
-            adjacency matrix. Defaults to True.
-
-    Inherits from MessagePassing layer for graph convolution operations.
+        dropout (float, optional): Dropout rate for attention coefficients. Defaults to 0.0.
+        use_bias (bool, optional): Whether to add bias terms (both in linear transform and final). Defaults to True.
+        kernel_initializer (str, optional): Initializer identifier for kernel weights. Defaults to 'glorot_uniform'.
+        bias_initializer (str, optional): Initializer identifier for bias weights. Defaults to 'zeros'.
+        att_initializer (str, optional): Initializer identifier for attention weights. Defaults to 'glorot_uniform'.
+        add_self_loops (bool, optional): Whether to add self-loops. Defaults to True.
+        **kwargs: Additional arguments passed to the `MessagePassing` base class.
     """
     def __init__(self,
-                output_dim: int,
-                heads: int = 1,
-                concat: bool = True,
-                negative_slope: float = 0.2,
-                dropout: float = 0.0,
-                use_bias: bool = True,
-                kernel_initializer: str = 'glorot_uniform',
-                bias_initializer: str = 'zeros',
-                add_self_loops: bool = True,
-                **kwargs):
+                 output_dim: int,
+                 heads: int = 1,
+                 concat: bool = True,
+                 negative_slope: float = 0.2,
+                 dropout: float = 0.0,
+                 use_bias: bool = True,
+                 kernel_initializer: str = 'glorot_uniform',
+                 bias_initializer: str = 'zeros',
+                 att_initializer: str = 'glorot_uniform',
+                 add_self_loops: bool = True,
+                 **kwargs):
+        # GAT uses sum aggregation
         super().__init__(aggregator='sum', **kwargs)
 
         self.output_dim = output_dim
         self.heads = heads
         self.concat = concat
         self.negative_slope = negative_slope
-        self.dropout = dropout  # Store as self.dropout for consistency
-        self.use_bias = use_bias
+        self.dropout_rate = dropout  # Store as dropout_rate for clarity
+        self.dropout_layer = layers.Dropout(dropout) if dropout > 0 else None
+        self.use_bias = use_bias # Controls bias in *both* places
         self.kernel_initializer = kernel_initializer
-        self.bias_initializer = bias_initializer
+        self.bias_initializer = bias_initializer # Used for *both* biases
+        self.att_initializer = att_initializer
         self.add_self_loops = add_self_loops
 
-        self.kernel_initializer_obj = initializers.get(self.kernel_initializer)
-        self.bias_initializer_obj = initializers.get(self.bias_initializer)
+        self.features_per_head = output_dim
 
-        self.hidden_dim = self.output_dim // self.heads
-
-        if self.output_dim % self.heads != 0:
-            raise ValueError(f"Output channels must be divisible by heads, but got {self.output_dim} and {self.heads}")
+        # Placeholder for layers/weights
+        self.linear_transform: Optional[layers.Dense] = None
+        self.att: Optional[keras.Variable] = None
+        self.bias: Optional[keras.Variable] = None # The final bias term
 
     def build(self, input_shape):
-        """
-        Build the layer weights.
+        """ Build the layer weights. """
+        input_dim_shape = input_shape[0]
+        if not isinstance(input_dim_shape, (list, tuple)) or len(input_dim_shape) != 2:
+            raise ValueError(f"Expected features input shape like (N, F), but got {input_dim_shape}")
+        node_feature_dim = input_dim_shape[1]
+        if node_feature_dim is None:
+             raise ValueError("Input feature dimension cannot be None.")
 
-        Args:
-            input_shape: [(N, F), (2, E)]
-        """
-        input_dim = input_shape[0]
-        if not isinstance(input_dim, (list, tuple)) or len(input_dim) != 2:
-            raise ValueError(f"Expected features input shape like (N, F), but got {input_dim}")
-
-        # Linear transformation for node features
+        # Linear transformation for node features (W)
+        # --- FIX: Apply bias here *if* self.use_bias is True ---
         self.linear_transform = layers.Dense(
-            self.heads * self.hidden_dim,
+            self.heads * self.features_per_head,
             kernel_initializer=self.kernel_initializer,
-            bias_initializer=self.bias_initializer,
-            use_bias=True
+            use_bias=self.use_bias, # Apply bias here
+            bias_initializer=self.bias_initializer, # Use same initializer
+            name="linear_transform"
         )
+        self.linear_transform.build((None, node_feature_dim))
 
-        # Attention weights - the key difference from GAT
-        # is that we apply this after linear transform and concatenation
+        # Attention parameters (a)
         self.att = self.add_weight(
-            shape=(1, self.heads, self.hidden_dim),  # Use hidden_dim instead of output_dim
-            initializer=self.kernel_initializer_obj,
+            shape=(1, self.heads, self.features_per_head),
+            initializer=initializers.get(self.att_initializer),
             name="att",
             trainable=True
         )
 
-        # Bias
+        # --- FIX: Add separate final bias weight *if* self.use_bias is True ---
         if self.use_bias:
-            # Calculate the correct bias shape based on concat flag
-            if self.concat:
-                bias_shape = (self.heads * self.hidden_dim,)  # For concatenated output
-            else:
-                bias_shape = (self.hidden_dim,)  # For averaged output
-
+            bias_shape = (self.heads * self.output_dim,) if self.concat else (self.output_dim,)
+            # Use a distinct name to avoid potential conflicts if Keras reuses names
             self.bias = self.add_weight(
                 shape=bias_shape,
-                initializer=self.bias_initializer_obj,
-                name="bias_concat" if self.concat else "bias_average",
+                initializer=initializers.get(self.bias_initializer), # Use same initializer
+                name="final_bias", # Changed name for clarity
                 trainable=True
             )
         else:
             self.bias = None
 
-    def call(self, inputs):
-        """
-        Perform GATv2 convolution.
+        super().build(input_shape) # Call base build
 
-        Args:
-            inputs: List[x, edge_idx]
-                - x: [N, F]
-                - edge_idx: [2, E]
-        Returns:
-            [N, output_channels]
-        """
+    def call(self, inputs: Tuple[Any, Any], training: Optional[bool] = None):
+        """ Perform GATv2 convolution. """
+        x, edge_index = inputs
+        edge_index = ops.cast(edge_index, dtype="int32")
 
-        x, edge_idx = inputs
-        edge_idx = ops.cast(edge_idx, dtype="int32")
-
-        # Add self-loops if needed
         if self.add_self_loops:
             num_nodes = ops.shape(x)[0]
-            # Import here to avoid circular import issues
-            from keras_geometric.utils.main import add_self_loops
-            edge_idx = add_self_loops(edge_idx, num_nodes)
+            edge_index = add_self_loops(edge_index, num_nodes)
 
-        return self.propagate((x, edge_idx))
+        # Pass training flag to propagate
+        return self.propagate(x, edge_index, training=training)
 
     def _compute_attention(self, h_i, h_j, target_idx, num_nodes):
-        """
-        Compute attention coefficients for each edge.
-
-        Args:
-            h_i: [E, heads, hidden_dim] - Features of target nodes
-            h_j: [E, heads, hidden_dim] - Features of source nodes
-            target_idx: [E] - Target node indices
-            num_nodes: Number of nodes
-
-        Returns:
-            [E, heads, 1] - Attention coefficients
-        """
-        # Add source and target node features
-        g_ij = ops.add(h_i, h_j)  # [E, heads, hidden_dim]
-
-        # Apply LeakyReLU
-        z_ij = ops.leaky_relu(g_ij, negative_slope=self.negative_slope)  # [E, heads, hidden_dim]
-
-        # Compute attention scores using a simpler approach
-        # Reshape attention weights for broadcasting
-        # z_ij: [E, heads, hidden_dim], self.att: [1, heads, hidden_dim]
-        # We want to do a dot product along the hidden_dim axis for each head
-
-        # Compute dot product between z_ij and attention weights
-        # This is equivalent to sum(z_ij * att, axis=-1)
-        attn_scores = ops.sum(ops.multiply(z_ij, self.att), axis=-1)  # [E, heads]
-
-        # Compute softmax of attention scores grouped by target nodes
+        """ Compute attention coefficients for each edge. """
+        g_ij = ops.add(h_i, h_j)
+        z_ij = ops.leaky_relu(g_ij, negative_slope=self.negative_slope)
+        if self.att is None: raise RuntimeError("Attention weights not built.")
+        attn_scores = ops.sum(ops.multiply(z_ij, self.att), axis=-1)
         alpha = self._softmax_by_target(attn_scores, target_idx, num_nodes)
-
-        return ops.expand_dims(alpha, -1) # (E, H, 1)
+        return ops.expand_dims(alpha, -1)
 
     def _softmax_by_target(self, scores, target_nodes, num_nodes):
-        """
-        Compute softmax of attention coefficients, grouped by target nodes.
-
-        Args:
-            scores: [E, H]
-            target_nodes: [E] Target nodes indices
-            num_nodes: Number of nodes
-
-        Returns:
-            [E, H] Normalized attention coefficients
-        """
-        # Note: We handle numerical stability directly in the implementation below
-
-        # We'll compute max and sum for each target node's neighborhood
+        """ Compute softmax of attention coefficients, grouped by target nodes. """
         target_nodes = ops.cast(target_nodes, dtype='int32')
-
-        # Find max value per target node for numerical stability
         max_per_target = ops.segment_max(scores, target_nodes, num_segments=num_nodes)
-        max_per_edge = ops.take(max_per_target, target_nodes, axis=0)
+        current_max_size = ops.shape(max_per_target)[0]
+        if current_max_size < num_nodes:
+             padding_max = ops.full((num_nodes - current_max_size, ops.shape(scores)[1]), -np.inf, dtype=scores.dtype)
+             max_per_target = ops.concatenate([max_per_target, padding_max], axis=0)
 
-        # Subtract max for numerical stability
+        max_per_edge = ops.take(max_per_target, target_nodes, axis=0)
         exp_alpha = ops.exp(ops.subtract(scores, max_per_edge))
 
-        # Sum for denominator of softmax
         sum_per_target = ops.segment_sum(exp_alpha, target_nodes, num_segments=num_nodes)
-        sum_per_edge = ops.take(sum_per_target, target_nodes, axis=0)
+        current_sum_size = ops.shape(sum_per_target)[0]
+        if current_sum_size < num_nodes:
+             padding_sum = ops.zeros((num_nodes - current_sum_size, ops.shape(scores)[1]), dtype=scores.dtype)
+             sum_per_target = ops.concatenate([sum_per_target, padding_sum], axis=0)
 
-        # Compute softmax
+        sum_per_edge = ops.take(sum_per_target, target_nodes, axis=0)
         return ops.divide(exp_alpha, ops.add(sum_per_edge, 1e-10))
 
-    def propagate(self, inputs):
-        x, edge_index = inputs
+    def propagate(self, x, edge_index, **kwargs):
+        """ Execute the complete GATv2 message passing flow.
+
+        Args:
+            x: Node features tensor of shape [N, F]
+            edge_index: Edge indices tensor of shape [2, E]
+            **kwargs: Additional arguments, including training flag
+        """
+        # Extract training flag from kwargs
+        training = kwargs.get('training', None)
         N = ops.shape(x)[0]
         E = ops.shape(edge_index)[1]
 
-        # linear transformation
-        x = self.linear_transform(x)
-        x = ops.reshape(x, [N, self.heads, self.hidden_dim])  # [N, heads, hidden_dim]
+        if self.linear_transform is None or self.att is None:
+            raise RuntimeError("Layer weights not built. Call layer on data first.")
 
-        source_idx, target_idx = ops.cast(edge_index[0], dtype='int32'), ops.cast(edge_index[1], dtype='int32')
-        h_j = ops.take(x, source_idx, axis=0)  # [E, heads, hidden_dim]
+        # Apply linear transformation (W*x + b if use_bias=True): [N, F] -> [N, H * F_out]
+        x_transformed = self.linear_transform(x) # Bias is applied here now
+        # Reshape: [N, H, F_out]
+        x_transformed = ops.reshape(x_transformed, [N, self.heads, self.features_per_head])
 
-        h_i = ops.take(x, target_idx, axis=0)  # [E, heads, hidden_dim]
+        source_idx = ops.cast(edge_index[0], dtype='int32')
+        target_idx = ops.cast(edge_index[1], dtype='int32')
 
+        h_j = ops.take(x_transformed, source_idx, axis=0)
+        h_i = ops.take(x_transformed, target_idx, axis=0)
+
+        # Compute attention coefficients: [E, H, 1]
         alpha = self._compute_attention(h_i, h_j, target_idx, N)
 
-        if self.dropout > 0 and self.trainable:
-            alpha = layers.Dropout(self.dropout)(alpha)
+        # Apply dropout to attention coefficients if dropout rate > 0
+        if self.dropout_layer is not None:
+             alpha = self.dropout_layer(alpha, training=training)
 
-        # flattening the messages into (E, heads * hidden_dim)
-        messages = ops.reshape(self.message(h_i, h_j, alpha=alpha), [E, self.heads * self.hidden_dim])
+        # Compute messages (apply attention): [E, H, F_out]
+        messages = self.message(h_i, h_j, alpha=alpha)
 
-        aggr_messages = self.aggregate(messages, target_idx, N)
+        # Aggregate messages (using base class 'sum' aggregation)
+        messages_flat = ops.reshape(messages, [E, self.heads * self.features_per_head])
+        aggregated = super().aggregate(messages_flat, target_idx, num_nodes=N) # [N, H * F_out]
 
-        output = self.update(aggr_messages)
+        # Final update (concat/average + final bias)
+        output = self.update(aggregated)
 
         return output
 
     def message(self, x_i, x_j, **kwargs):
-        """
-        Computes messages with attention weights.
-
-        Args:
-            x_i: Tensor of shape [E, H, F] containing features of the target nodes.
-                Not used in this implementation but required by the MessagePassing interface.
-            x_j: Tensor of shape [E, H, F] containing features of the source nodes.
-            **kwargs: Contains 'alpha' - the attention coefficients of shape [E, H, 1].
-
-        Returns:
-            Tensor of shape [E, H, F] containing the weighted messages.
-        """
-        alpha = kwargs['alpha']
-        return alpha * x_j
+        """ Computes messages with attention weights. """
+        alpha = kwargs['alpha'] # [E, H, 1]
+        return alpha * x_j      # [E, H, F_out]
 
     def update(self, aggregated):
-        """
-        Overrides base update to handle multi-head aggregation and final bias.
-        Args:
-            aggregated_flat (Tensor): Aggregated messages [N, H * F_out].
-        """
+        """ Final update step: handles multi-head outputs and applies final bias. """
         N = ops.shape(aggregated)[0]
         if self.concat:
+            # aggregated is already [N, heads * features_per_head]
             output = aggregated
         else:
-            aggregated_reshaped = ops.reshape(aggregated, [N, self.heads, self.hidden_dim])
-            output = ops.mean(aggregated_reshaped, axis=1)
+            # Average across heads
+            aggregated_reshaped = ops.reshape(aggregated, [N, self.heads, self.features_per_head])
+            output = ops.mean(aggregated_reshaped, axis=1) # [N, features_per_head]
 
-        if self.use_bias:
+        # --- FIX: Add the separate final bias term ---
+        if self.use_bias and self.bias is not None:
             output = ops.add(output, self.bias)
 
         return output
 
     def get_config(self):
-        """
-        Serializes the layer configuration.
-        """
-        config = super(GATv2Conv, self).get_config()
+        """ Serializes the layer configuration. """
+        config = super().get_config()
         config.update({
             'output_dim': self.output_dim,
             'heads': self.heads,
             'concat': self.concat,
             'negative_slope': self.negative_slope,
-            'dropout': self.dropout,
+            'dropout': self.dropout_rate,  # Use 'dropout' key for compatibility with tests and PyG
             'use_bias': self.use_bias,
             'kernel_initializer': self.kernel_initializer,
             'bias_initializer': self.bias_initializer,
+            'att_initializer': self.att_initializer,
             'add_self_loops': self.add_self_loops
         })
         return config
 
     @classmethod
     def from_config(cls, config):
-        """
-        Creates a layer from its config.
-        """
-        # Make a copy of the config to avoid modifying the original
-        config_copy = config.copy()
-        if 'aggregator' in config_copy:
-            config_copy.pop('aggregator')
-        return cls(**config_copy)
+        """ Creates a layer from its config. """
+        config.pop('aggr', None)
+        # Make sure we use 'dropout' from config (the key is still 'dropout' for compatibility)
+        return cls(**config)
