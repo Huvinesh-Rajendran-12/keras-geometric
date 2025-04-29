@@ -1,15 +1,14 @@
 from typing import Any, Optional, Tuple
 
 import keras
-import numpy as np  # For -np.inf
-from keras import activations, initializers, layers, ops
+from keras import initializers, layers, ops
 
 # Assuming MessagePassing is in the same directory
 from .message_passing import MessagePassing
 
 # Assuming utils are in sibling directory 'utils' relative to package root
 try:
-    from keras_geometric.utils.main import add_self_loops
+    from keras_geometric.utils import add_self_loops
 except ImportError:
     # Fallback: Define inline if utils import fails (useful for testing standalone)
     print("Warning: Could not import add_self_loops from utils. Using inline definition.")
@@ -145,10 +144,6 @@ class GATv2Conv(MessagePassing):
         """ Compute softmax of attention coefficients, grouped by target nodes. """
         target_nodes = ops.cast(target_nodes, dtype='int32')
         max_per_target = ops.segment_max(scores, target_nodes, num_segments=num_nodes)
-        current_max_size = ops.shape(max_per_target)[0]
-        if self.att is None:
-            raise RuntimeError("Attention weights not built. Call layer on data first.")
-        attn_scores = ops.sum(ops.multiply(z_ij, self.att), axis=-1)
 
         max_per_edge = ops.take(max_per_target, target_nodes, axis=0)
         exp_alpha = ops.exp(ops.subtract(scores, max_per_edge))
@@ -189,6 +184,8 @@ class GATv2Conv(MessagePassing):
         h_j = ops.take(x_transformed, source_idx, axis=0)
         h_i = ops.take(x_transformed, target_idx, axis=0)
 
+        if self.att is None:
+            raise RuntimeError("Attention weights not built. Call layer on data first.")
         # Compute attention coefficients: [E, H, 1]
         alpha = self._compute_attention(h_i, h_j, target_idx, N)
 
