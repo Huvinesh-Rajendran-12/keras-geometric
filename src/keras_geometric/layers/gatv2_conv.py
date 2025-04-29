@@ -20,7 +20,7 @@ class GATv2Conv(MessagePassing):
         concat (bool, optional): Whether to concatenate or average multi-head
             attentions. Defaults to True.
         negative_slope (float, optional): LeakyReLU negative slope. Defaults to 0.2.
-        dropout_rate (float, optional): Dropout rate for attention coefficients.
+        dropout (float, optional): Dropout rate for attention coefficients.
             Defaults to 0.0.
         use_bias (bool, optional): Whether to use bias. Defaults to True.
         kernel_initializer (str, optional): Initializer for kernel weights.
@@ -37,7 +37,7 @@ class GATv2Conv(MessagePassing):
                 heads: int = 1,
                 concat: bool = True,
                 negative_slope: float = 0.2,
-                dropout_rate: float = 0.0,
+                dropout: float = 0.0,
                 use_bias: bool = True,
                 kernel_initializer: str = 'glorot_uniform',
                 bias_initializer: str = 'zeros',
@@ -49,7 +49,7 @@ class GATv2Conv(MessagePassing):
         self.heads = heads
         self.concat = concat
         self.negative_slope = negative_slope
-        self.dropout = dropout_rate  # Store as self.dropout for consistency
+        self.dropout = dropout  # Store as self.dropout for consistency
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
@@ -158,7 +158,7 @@ class GATv2Conv(MessagePassing):
 
         # Compute dot product between z_ij and attention weights
         # This is equivalent to sum(z_ij * att, axis=-1)
-        attn_scores = ops.sum(ops.dot(z_ij, self.att), axis=-1)  # [E, heads]
+        attn_scores = ops.sum(ops.multiply(z_ij, self.att), axis=-1)  # [E, heads]
 
         # Compute softmax of attention scores grouped by target nodes
         alpha = self._softmax_by_target(attn_scores, target_idx, num_nodes)
@@ -268,7 +268,7 @@ class GATv2Conv(MessagePassing):
             'heads': self.heads,
             'concat': self.concat,
             'negative_slope': self.negative_slope,
-            'dropout_rate': self.dropout_rate,
+            'dropout': self.dropout,
             'use_bias': self.use_bias,
             'kernel_initializer': self.kernel_initializer,
             'bias_initializer': self.bias_initializer,
