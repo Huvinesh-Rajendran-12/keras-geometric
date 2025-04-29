@@ -108,6 +108,9 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
                 self.assertEqual(gat.dropout_rate, dropout) # Check dropout storage
                 self.assertEqual(gat.negative_slope, neg_slope)
                 self.assertEqual(gat.aggregator, 'sum') # Should be forced to 'sum'
+                # Verify dropout layer was created with correct rate
+                self.assertIsNotNone(gat.dropout_layer)
+                self.assertEqual(gat.dropout_layer.rate, dropout)
 
     def test_call_shapes_variations(self):
         """Test the forward pass shape for different configurations."""
@@ -135,6 +138,63 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
                     try: output_shape = output.cpu().numpy().shape
                     except: output_shape = output.shape
                 self.assertEqual(output_shape, expected_shape, f"Shape mismatch for heads={heads}, concat={concat}, bias={use_bias}, loops={add_loops}")
+
+    def test_dropout_behavior(self):
+        """Test that dropout behaves differently during training vs inference."""
+        print("\n--- Testing GATv2Conv Dropout Behavior ---")
+
+        # Create a layer with high dropout to make the effect clearly visible
+        dropout_rate = 0.5
+        gat = GATv2Conv(
+            output_dim=self.output_dim,
+            heads=1,
+            concat=True,
+            dropout=dropout_rate,
+            use_bias=True
+        )
+
+        # Prepare input data
+        input_data = [self.features_keras, self.edge_index_keras]
+
+        # Run multiple times in training mode to verify outputs differ (due to dropout)
+        outputs_training = []
+        for _ in range(3):
+            output = gat(input_data, training=True)
+            try: output_np = output.cpu().detach().numpy()
+            except: output_np = output.numpy()
+            outputs_training.append(output_np)
+
+        # Verify training runs produce different outputs (dropout is active)
+        are_different = False
+        for i in range(len(outputs_training) - 1):
+            if not np.allclose(outputs_training[i], outputs_training[i+1], rtol=1e-5, atol=1e-5):
+                are_different = True
+                break
+
+        self.assertTrue(are_different, "Outputs should differ in training mode due to dropout")
+
+        # Run multiple times in inference mode to verify outputs are consistent
+        outputs_inference = []
+        for _ in range(3):
+            output = gat(input_data, training=False)
+            try: output_np = output.cpu().detach().numpy()
+            except: output_np = output.numpy()
+            outputs_inference.append(output_np)
+
+        # Verify inference runs produce same outputs (dropout is not active)
+        for i in range(len(outputs_inference) - 1):
+            np.testing.assert_allclose(
+                outputs_inference[i], outputs_inference[i+1],
+                rtol=1e-5, atol=1e-5,
+                err_msg="Outputs should be identical in inference mode"
+            )
+
+        # Verify values are different between training and inference
+        if len(outputs_training) > 0 and len(outputs_inference) > 0:
+            self.assertFalse(
+                np.allclose(outputs_training[0], outputs_inference[0], rtol=1e-5, atol=1e-5),
+                "Training and inference outputs should differ due to dropout"
+            )
 
     def test_config_serialization(self):
         """Test layer get_config and from_config methods."""
