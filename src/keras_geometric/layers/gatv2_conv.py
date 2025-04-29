@@ -206,9 +206,9 @@ class GATv2Conv(MessagePassing):
         x = ops.reshape(x, [N, self.heads, self.hidden_dim])  # [N, heads, hidden_dim]
 
         source_idx, target_idx = ops.cast(edge_index[0], dtype='int32'), ops.cast(edge_index[1], dtype='int32')
-        h_j = ops.take(x, source_idx, axis=0)  # [E, heads, output_dim]
+        h_j = ops.take(x, source_idx, axis=0)  # [E, heads, hidden_dim]
 
-        h_i = ops.take(x, target_idx, axis=0)  # [E, heads, output_dim]
+        h_i = ops.take(x, target_idx, axis=0)  # [E, heads, hidden_dim]
 
         alpha = self._compute_attention(h_i, h_j, target_idx, N)
 
