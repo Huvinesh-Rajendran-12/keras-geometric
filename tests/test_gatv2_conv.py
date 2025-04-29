@@ -143,7 +143,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
             output_dim=self.output_dim + 1, heads=4, concat=False,
             negative_slope=0.1, dropout=0.1, use_bias=False,
             kernel_initializer='he_normal', bias_initializer='ones',
-            # --- FIX: Changed orthogonal to glorot_uniform for MPS compatibility ---
+            # --- FIX: Changed orthogonal to glorot_uniform for MPS compatibility. See issue #XYZ for details. ---
             att_initializer='glorot_uniform', add_self_loops=False,
             name="test_gatv2_config"
         )
