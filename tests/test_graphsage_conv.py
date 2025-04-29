@@ -172,10 +172,21 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase): # Renamed class
         self.assertEqual(config['normalize'], layer1_config_params['normalize'])
         self.assertEqual(config['root_weight'], layer1_config_params['root_weight'])
         self.assertEqual(config['use_bias'], layer1_config_params['use_bias'])
-        self.assertEqual(config['activation']['class_name'], 'Tanh')
-        self.assertEqual(config['pool_activation']['class_name'], 'Sigmoid') # Check pool activation
-        self.assertEqual(config['kernel_initializer'], 'he_normal')
-        self.assertEqual(config['bias_initializer'], 'ones')
+        # Check initializers - support both dictionary and string formats
+        if isinstance(config['activation'], dict):
+            self.assertEqual(config['activation']['class_name'], 'Tanh')
+            self.assertEqual(config['pool_activation']['class_name'], 'Sigmoid')
+        else:
+            self.assertEqual(config['activation'], 'tanh')
+            self.assertEqual(config['pool_activation'], 'sigmoid')
+
+        # Handle both dictionary and string formats for initializers
+        if isinstance(config['kernel_initializer'], dict):
+            self.assertEqual(config['kernel_initializer']['class_name'], 'HeNormal')
+            self.assertEqual(config['bias_initializer']['class_name'], 'Ones')
+        else:
+            self.assertEqual(config['kernel_initializer'], 'he_normal')
+            self.assertEqual(config['bias_initializer'], 'ones')
         self.assertEqual(config['name'], layer1_config_params['name'])
 
         # Test reconstruction
@@ -192,8 +203,15 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase): # Renamed class
         self.assertEqual(layer1.root_weight, layer2.root_weight)
         self.assertEqual(layer1.use_bias, layer2.use_bias)
         self.assertEqual(layer1.name, layer2.name)
-        self.assertIsInstance(layer2.activation, activations.tanh)
-        self.assertIsInstance(layer2.pool_activation, activations.sigmoid)
+        # Check activation types
+        self.assertTrue(
+            isinstance(layer2.activation, activations.tanh) or
+            layer2.activation == activations.get('tanh')
+        )
+        self.assertTrue(
+            isinstance(layer2.pool_activation, activations.sigmoid) or
+            layer2.pool_activation == activations.get('sigmoid')
+        )
 
 
     @unittest.skipIf(not TORCH_AVAILABLE, "PyTorch or PyTorch Geometric not available")
@@ -290,7 +308,14 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase): # Renamed class
             pool_activation='relu' # Match pool_activation_fn below
         )
         keras_output = layer([self.features_keras, self.edge_index_keras])
-        keras_output_np = keras_output.cpu().detach().numpy()
+                # Handle both PyTorch and TensorFlow tensors
+        try:
+            keras_output_np = keras_output.cpu().detach().numpy()
+        except AttributeError:
+            try:
+                keras_output_np = keras_output.cpu().numpy()
+            except AttributeError:
+                keras_output_np = keras.ops.convert_to_numpy(keras_output)
 
         # --- Manual NumPy Calculation ---
         x_np = self.features_np
