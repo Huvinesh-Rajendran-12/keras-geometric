@@ -146,9 +146,9 @@ class GATv2Conv(MessagePassing):
         target_nodes = ops.cast(target_nodes, dtype='int32')
         max_per_target = ops.segment_max(scores, target_nodes, num_segments=num_nodes)
         current_max_size = ops.shape(max_per_target)[0]
-        if current_max_size < num_nodes:
-             padding_max = ops.full((num_nodes - current_max_size, ops.shape(scores)[1]), -np.inf, dtype=scores.dtype)
-             max_per_target = ops.concatenate([max_per_target, padding_max], axis=0)
+        if self.att is None:
+            raise RuntimeError("Attention weights not built. Call layer on data first.")
+        attn_scores = ops.sum(ops.multiply(z_ij, self.att), axis=-1)
 
         max_per_edge = ops.take(max_per_target, target_nodes, axis=0)
         exp_alpha = ops.exp(ops.subtract(scores, max_per_edge))
