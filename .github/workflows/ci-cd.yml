@@ -65,8 +65,12 @@ jobs:
         run: |
           uv venv .venv --seed
           source .venv/bin/activate
-          uv pip install flake8 mypy types-PyYAML # Add other lint deps if needed
-          uv pip install -e ".[dev]" # Install project for mypy analysis
+          # Install all dev dependencies (including flake8, mypy, pip-audit, safety, etc.)
+          uv pip install -e ".[dev]"
+          # On Linux, only install base and dev dependencies (tensorflow only)
+          uv pip install -e ".[dev]"
+          # On macOS ARM64, you can also install the optional macos-metal extra for tensorflow-metal:
+          # uv pip install -e ".[dev,macos-metal]"
       - name: Run flake8
         run: source .venv/bin/activate && uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Run mypy
