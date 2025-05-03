@@ -1,133 +1,129 @@
 # .github/workflows/ci-cd.yml
 name: Keras-Geometric CI/CD
 
-# Controls when the workflow will run
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     tags:
-      - "v*" # Build/publish on tags
+      - 'v*' # Trigger on version tags (e.g., v0.1.0, v0.1.0b1)
   pull_request:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch: # Allows manual triggering
 
+# Define environment variables for consistency
+env:
+  UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv # Cache within workspace
+  PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+
 jobs:
-  # --- Filter Job (Checks for Python file changes) ---
+  # --- Filter Job ---
   filter:
     name: Check for Python file changes
     runs-on: ubuntu-latest
-    # Only run this check for push/pull_request events, not tags
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     outputs:
-      # Output 'true' if Python files changed, 'false' otherwise
       python_changed: ${{ steps.filter.outputs.python == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Calculate changed paths
-        uses: dorny/paths-filter@v3 # Use paths-filter action
-        id: filter # Give the step an ID
+        uses: dorny/paths-filter@v3
+        id: filter
         with:
-          # Base branch for comparison on PRs/pushes
-          base: ${{ github.ref }}
-          # Define filter groups
           filters: |
-            python: # Name of the filter group
-              - 'src/**/*.py' # Check for .py files in src
-              - 'tests/**/*.py' # Check for .py files in tests
-              - 'pyproject.toml' # Also run if dependencies change
-              - 'uv.lock' # Also run if lock file changes
+            python:
+              - 'src/**/*.py'
+              - 'tests/**/*.py'
+              - 'pyproject.toml'
+              - 'uv.lock'
 
   # --- Linting Job ---
   lint:
     name: Linting (Python 3.11)
     runs-on: ubuntu-latest
-    # Depend on the filter job for push/PR events
     needs: filter
-    # Run only if Python files changed (on push/PR) OR if manually dispatched/tagged
-    if: |
+    if: | # Run always on tags/dispatch, or if python files changed on push/PR
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.ref, 'refs/tags/v') ||
-      (needs.filter.outputs.python_changed == 'true')
-
-  # --- Dependency Scanning Job ---
-  dependency_scan:
-    name: Scan Dependencies for Vulnerabilities
-    runs-on: ubuntu-latest
-    # Depend on the filter job for push/PR events
-    needs: filter
-    # Run only if Python files changed (on push/PR) OR if manually dispatched/tagged
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      startsWith(github.ref, 'refs/tags/v') ||
-      (needs.filter.outputs.python_changed == 'true')
+      (github.event_name != 'schedule' && needs.filter.outputs.python_changed == 'true')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
+        with: { python-version: '3.11' }
       - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Add uv to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-uv-lint-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-lint-
+      - name: Create venv and Install Lint Dependencies + Project
+        run: |
+          uv venv .venv --seed
+          source .venv/bin/activate
+          uv pip install flake8 mypy types-PyYAML # Add other lint deps if needed
+          uv pip install -e ".[dev]" # Install project for mypy analysis
+      - name: Run flake8
+        run: source .venv/bin/activate && uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Run mypy
+        run: source .venv/bin/activate && uv run mypy src/
+
+  # --- Dependency Scanning Job ---
+  dependency_scan:
+    name: Scan Dependencies
+    runs-on: ubuntu-latest
+    needs: filter
+    if: | # Run always on tags/dispatch, or if python files changed on push/PR
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name != 'schedule' && needs.filter.outputs.python_changed == 'true')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Configure uv cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
           key: ${{ runner.os }}-uv-scan-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-scan-
-
-      - name: Create virtual environment
-        run: uv venv .venv --seed
-
-      - name: Install dependencies including project and pip-audit
+      - name: Create venv and Install Scan Dependencies + Project
         run: |
+          uv venv .venv --seed
           source .venv/bin/activate
-          uv pip install -e ".[dev]"
           uv pip install pip-audit safety
-
+          uv pip install -e ".[dev]" # Install project deps needed for scan
       - name: Run pip-audit
-        run: |
-          source .venv/bin/activate
-          echo "Running pip-audit to scan for vulnerabilities..."
-          uv run pip-audit
-
+        run: source .venv/bin/activate && uv run pip-audit
       - name: Run safety check
-        run: |
-          source .venv/bin/activate
-          echo "Running safety check to scan for vulnerabilities..."
-          uv run safety check
-
-
+        run: source .venv/bin/activate && uv run safety check
 
   # --- Testing Job (Matrix) ---
   test:
-    name: Test Python ${{ matrix.python-version }} / ${{ matrix.keras-backend }}
-    # Depend on filter job (for push/PR), lint job, and dependency scan job
-    needs: [lint, dependency_scan, filter]
-    # Run only if Python files changed (on push/PR) OR if manually dispatched/tagged
-    # Also ensure lint job and dependency scan succeeded
-    if: |
+    name: Test Py${{ matrix.python-version }}/${{ matrix.keras-backend }}
+    needs: [lint, dependency_scan, filter] # Depend on lint and scan
+    if: | # Run always on tags/dispatch, or if python files changed on push/PR
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.ref, 'refs/tags/v') ||
-      (needs.filter.outputs.python_changed == 'true')
+      (github.event_name != 'schedule' && needs.filter.outputs.python_changed == 'true')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
         keras-backend: [tensorflow, torch, jax]
         include:
           - keras-backend: tensorflow
-            backend-deps: '"tensorflow-macos>=2.17" "keras>=3.0"' # Use tensorflow if not macOS
+            backend-deps: '"tensorflow>=2.17" "keras>=3.0"' # Use tensorflow if not macOS
           - keras-backend: torch
             backend-deps: '"torch" "torch-geometric" "torch-scatter" "keras>=3.0"'
           - keras-backend: jax
@@ -135,42 +131,34 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Add uv to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
+          path: ${{ env.UV_CACHE_DIR }}
           key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ matrix.keras-backend }}-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ matrix.keras-backend }}-
-
-      - name: Create virtual environment
-        run: uv venv .venv --seed
-
-      - name: Install backend dependencies
-        run: source .venv/bin/activate && uv pip install ${{ matrix.backend-deps }}
-
-      - name: Install project + test dependencies
-        run: source .venv/bin/activate && uv pip install -e ".[test]"
-
+      - name: Create venv and Install Dependencies
+        run: |
+          uv venv .venv --seed
+          source .venv/bin/activate
+          echo "Installing backend: ${{ matrix.keras-backend }}"
+          uv pip install ${{ matrix.backend-deps }}
+          echo "Installing project + test dependencies..."
+          uv pip install -e ".[test]"
       - name: Run tests
         env:
           KERAS_BACKEND: ${{ matrix.keras-backend }}
         run: |
           source .venv/bin/activate
           echo "Using Keras backend: $KERAS_BACKEND"
-          python -c "import keras; print(keras.backend.backend())" # Verify backend
+          python -c "import keras; print(f'Keras version: {keras.__version__}'); print(f'Backend: {keras.backend.backend()}')"
           echo "Running tests..."
           uv run python -m unittest discover -s tests -v
 
@@ -178,91 +166,76 @@ jobs:
   generate_release_notes:
     name: Generate Release Notes
     runs-on: ubuntu-latest
-    needs: test # Ensure tests pass before generating release notes
-    # Run only on tags starting with v*
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test # Run after successful tests on the tag
+    if: startsWith(github.ref, 'refs/tags/v') # Only run on tags
     outputs:
       release_notes: ${{ steps.generate_notes.outputs.release_notes }}
+      tag_name: ${{ steps.tag.outputs.tag }} # Output the tag name
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Required to get all commits for release notes
-
-      - name: Generate Release Notes
+        with: { fetch-depth: 0 } # Required for git history
+      - name: Get Tag Name
+        id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - name: Generate Release Notes Body
         id: generate_notes
         run: |
-          # Get the previous tag
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          # Get the previous tag (handle first tag case)
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${{ steps.tag.outputs.tag }}^ 2>/dev/null || echo "")
+          echo "Previous tag: ${PREVIOUS_TAG:-'(none)'}"
 
+          # Generate commit list
           if [ -z "$PREVIOUS_TAG" ]; then
-            # If no previous tag, get all commits
-            echo "No previous tag found. Getting all commits."
-            COMMITS=$(git log --pretty=format:"* %s (%h)" --no-merges)
+            COMMITS=$(git log --pretty=format:"* %s (%h)" --no-merges ${{ steps.tag.outputs.tag }})
           else
-            # Get commits between previous tag and current tag
-            echo "Previous tag: $PREVIOUS_TAG"
-            COMMITS=$(git log --pretty=format:"* %s (%h)" --no-merges $PREVIOUS_TAG..HEAD)
+            COMMITS=$(git log --pretty=format:"* %s (%h)" --no-merges $PREVIOUS_TAG..${{ steps.tag.outputs.tag }})
           fi
 
-          # Create release notes with version and date
-          RELEASE_NOTES="## $GITHUB_REF_NAME ($(date +"%Y-%m-%d"))\n\n"
-          RELEASE_NOTES+="$COMMITS"
+          # Assemble notes
+          RELEASE_NOTES="## Changes in ${{ steps.tag.outputs.tag }} ($(date +"%Y-%m-%d"))%0A%0A$COMMITS"
+          # Set output variable (ensure multiline compatibility)
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          echo -e "## Changes in ${{ steps.tag.outputs.tag }} ($(date +"%Y-%m-%d"))\n\n$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-          # Escape newlines for GitHub Actions output
-          RELEASE_NOTES="${RELEASE_NOTES//$'\n'/%0A}"
+          # Print for debugging
+          echo "Generated Release Notes Content:"
+          echo -e "## Changes in ${{ steps.tag.outputs.tag }} ($(date +"%Y-%m-%d"))\n\n$COMMITS"
 
-          # Set output variable
-          echo "release_notes=$RELEASE_NOTES" >> $GITHUB_OUTPUT
-
-          # Also print the release notes for debugging
-          echo "Generated Release Notes:"
-          echo "$COMMITS"
 
   # --- Build Job ---
   build:
     name: Build Package
     runs-on: ubuntu-latest
-    needs: [test, generate_release_notes] # Ensure tests pass and release notes are generated
-    # Run only on tags starting with v*
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test # Run after successful tests on the tag
+    if: startsWith(github.ref, 'refs/tags/v') # Only run on tags
     steps:
-      - name: Checkout code (fetch full history for hatch-vcs)
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Required for hatch-vcs to get tags
-
+        with: { fetch-depth: 0 } # Required for hatch-vcs
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
+        with: { python-version: '3.11' }
       - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Add uv to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
+          path: ${{ env.UV_CACHE_DIR }}
           key: ${{ runner.os }}-uv-build-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-build-
-
-      - name: Create virtual environment
-        run: uv venv .venv --seed
-
-      - name: Install build dependencies
-        run: source .venv/bin/activate && uv pip install build hatch-vcs
-
+      - name: Create venv and Install Build Dependencies
+        run: |
+          uv venv .venv --seed
+          source .venv/bin/activate
+          uv pip install build hatch-vcs
       - name: Build package
         run: |
           source .venv/bin/activate
-          echo "Building package for tag: $GITHUB_REF_NAME" # Use GITHUB_REF_NAME for tag
+          echo "Building package for tag: $GITHUB_REF_NAME"
           uv run python -m build
-
       - name: Upload distribution artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -274,75 +247,63 @@ jobs:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
     needs: build # Run after build is complete
-    # Run only on tags starting with v*
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') # Only run on tags
     environment:
       name: testpypi
       url: https://test.pypi.org/p/keras-geometric
-
     steps:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
+        with: { python-version: '3.11' }
       - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Add uv to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
+          path: ${{ env.UV_CACHE_DIR }}
           key: ${{ runner.os }}-uv-publish-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-publish-
-
-      - name: Create virtual environment
-        run: uv venv .venv --seed
-
-      - name: Install Twine
-        run: source .venv/bin/activate && uv pip install twine
-
+      - name: Create venv and Install Twine
+        run: |
+          uv venv .venv --seed
+          source .venv/bin/activate
+          uv pip install twine
       - name: Download distribution artifacts
         uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-
+        with: { name: python-package-distributions, path: dist/ }
       - name: Check artifacts
         run: ls -l dist/
-
       - name: Publish package to TestPyPI
+        env:
+          # Use the secret defined in GitHub repo settings
+          TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
           source .venv/bin/activate
-          uv run twine upload --repository testpypi --non-interactive -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }} dist/*
+          uv run twine upload --repository testpypi --non-interactive -u __token__ -p $TEST_PYPI_API_TOKEN dist/*
 
   # --- Create GitHub Release Job ---
   create_github_release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [publish_testpypi, generate_release_notes] # Run after publishing to TestPyPI
-    # Run only on tags starting with v*
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Run after publishing to TestPyPI and generating notes
+    needs: [publish_testpypi, generate_release_notes]
+    if: startsWith(github.ref, 'refs/tags/v') # Only run on tags
+    permissions:
+        contents: write # Permission to create releases
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Download distribution artifacts
         uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-
+        with: { name: python-package-distributions, path: dist/ }
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2 # Use updated version
         with:
+          tag_name: ${{ needs.generate_release_notes.outputs.tag_name }} # Use tag name from previous job
+          name: Release ${{ needs.generate_release_notes.outputs.tag_name }}
           body: ${{ needs.generate_release_notes.outputs.release_notes }}
           files: dist/*
           draft: false
-          prerelease: false
+          prerelease: contains(needs.generate_release_notes.outputs.tag_name, 'b') # Mark as pre-release if tag contains 'b'
         env:
+          # GITHUB_TOKEN is automatically provided by GitHub Actions
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
