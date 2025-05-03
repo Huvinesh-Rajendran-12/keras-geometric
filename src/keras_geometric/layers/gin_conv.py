@@ -126,7 +126,4 @@ class GINConv(MessagePassing):
         """
         # Make a copy of the config to avoid modifying the original
         config_copy = config.copy()
-        # Remove 'aggregator' since it's passed explicitly in __init__
-        if 'aggregator' in config_copy:
-            config_copy.pop('aggregator')
         return cls(**config_copy)
