@@ -151,6 +151,8 @@ jobs:
         run: |
           uv venv .venv --seed
           source .venv/bin/activate
+          # Install build dependencies explicitly
+          uv pip install hatchling hatch-vcs
           echo "Installing backend: ${{ matrix.keras-backend }}"
           # --- FIX: Split torch installation ---
           if [ "${{ matrix.keras-backend }}" = "torch" ]; then
@@ -158,12 +160,14 @@ jobs:
             uv pip install ${{ matrix.keras-dep }} ${{ matrix.torch-deps }}
             echo "Installing PyG/Scatter and Project + Test Extras..."
             # torch must be installed before torch-scatter due to build requirements
-            uv pip install ${{ matrix.pyg-deps }} -e ".[test]" || uv pip install --no-build-isolation ${{ matrix.pyg-deps }} -e ".[test]"
+            # Use --no-build-isolation for this step
+            uv pip install --no-build-isolation ${{ matrix.pyg-deps }} -e ".[test]"
           else
             # Install other backends normally
             uv pip install ${{ matrix.backend-deps }}
             echo "Installing project + test dependencies..."
-            uv pip install -e ".[test]"
+            # Use --no-build-isolation for this step
+            uv pip install --no-build-isolation -e ".[test]"
           fi
       - name: Run tests
         env:
@@ -243,7 +247,8 @@ jobs:
         run: |
           uv venv .venv --seed
           source .venv/bin/activate
-          uv pip install build hatch-vcs
+          # Explicitly install build dependencies
+          uv pip install build hatchling hatch-vcs
       - name: Build package
         run: |
           source .venv/bin/activate
