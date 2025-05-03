@@ -97,15 +97,15 @@ class CoraDataset(Dataset):
         cites = np.genfromtxt(cites_path, dtype=np.dtype(str))
 
         # Convert citation IDs to indices
-        edge_index: List[List[int]] = []
+        edge_list: List[List[int]] = []
         for edge in cites:
             source_idx = id_mapping.get(edge[0])
             target_idx = id_mapping.get(edge[1])
             if source_idx is not None and target_idx is not None:
-                edge_index.append([source_idx, target_idx])
-                edge_index.append([target_idx, source_idx])  # Add reverse edge for undirected graph
+                edge_list.append([source_idx, target_idx])
+                edge_list.append([target_idx, source_idx])  # Add reverse edge for undirected graph
 
-        edge_index = np.array(edge_index, dtype=np.int64).T
+        edge_index = np.array(edge_list, dtype=np.int64).T
 
         # Create GraphData object
         graph_data = GraphData(
