@@ -97,7 +97,7 @@ class CoraDataset(Dataset):
         cites = np.genfromtxt(cites_path, dtype=np.dtype(str))
 
         # Convert citation IDs to indices
-        edge_index = []
+        edge_index: List[List[int]] = []
         for edge in cites:
             source_idx = id_mapping.get(edge[0])
             target_idx = id_mapping.get(edge[1])
