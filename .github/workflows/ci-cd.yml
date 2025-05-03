@@ -154,14 +154,11 @@ jobs:
           echo "Installing backend: ${{ matrix.keras-backend }}"
           # --- FIX: Split torch installation ---
           if [ "${{ matrix.keras-backend }}" = "torch" ]; then
-            echo "Installing Keras and Torch first..."
+            echo "Installing Keras and Torch first (torch must be present before torch-scatter)..."
             uv pip install ${{ matrix.keras-dep }} ${{ matrix.torch-deps }}
             echo "Installing PyG/Scatter and Project + Test Extras..."
-            # Install remaining torch deps and project - torch is now available for scatter build
-            # Try without --no-build-isolation first
-            uv pip install ${{ matrix.pyg-deps }} -e ".[test]"
-            # If the above still fails, uncomment the next line:
-            # uv pip install --no-build-isolation ${{ matrix.pyg-deps }} -e ".[test]"
+            # torch must be installed before torch-scatter due to build requirements
+            uv pip install ${{ matrix.pyg-deps }} -e ".[test]" || uv pip install --no-build-isolation ${{ matrix.pyg-deps }} -e ".[test]"
           else
             # Install other backends normally
             uv pip install ${{ matrix.backend-deps }}
