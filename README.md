@@ -1,5 +1,10 @@
 # Keras Geometric
 
+[![PyPI version](https://badge.fury.io/py/keras-geometric.svg)](https://badge.fury.io/py/keras-geometric)
+[![Build Status](https://github.com/Huvinesh-Rajendran-12/keras-geometric/workflows/Keras-Geometric%20CI/CD/badge.svg)](https://github.com/Huvinesh-Rajendran-12/keras-geometric/actions)
+[![Python Versions](https://img.shields.io/pypi/pyversions/keras-geometric.svg)](https://pypi.org/project/keras-geometric/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Keras Geometric is a library built on Keras (version 3+) designed for geometric deep learning, with a primary focus on Graph Neural Networks (GNNs). It provides modular building blocks to easily create and experiment with GNN architectures within the Keras ecosystem.
 
 The core philosophy is to offer a flexible and intuitive API, leveraging the power and simplicity of Keras for building complex graph-based models. Key components include a versatile [`MessagePassing`](src/keras_geometric/layers/message_passing.py) base layer and implementations of popular graph convolution layers like `GCNConv`, `GINConv`, and `GATv2Conv`.
@@ -30,11 +35,24 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
     - A Keras backend (TensorFlow, PyTorch, or JAX). Install your preferred backend if you haven't already (e.g., `pip install tensorflow`).
 
 2.  **Install Keras Geometric:**
-    Currently, you can install the library directly from the source repository:
 
+    There are multiple ways to install Keras Geometric:
+
+    **Option 1: Install from PyPI (Recommended)**
     ```sh
-    # Clone the repository (if you haven't already)
-    git clone <your-repo-url> # Replace <your-repo-url> with the actual URL
+    # Install the latest stable version
+    pip install keras-geometric
+
+    # Install with additional features
+    pip install keras-geometric[dev]  # Development dependencies
+    pip install keras-geometric[test] # Testing dependencies
+    pip install keras-geometric[macos-metal] # Metal acceleration for macOS
+    ```
+
+    **Option 2: Install from Source**
+    ```sh
+    # Clone the repository
+    git clone https://github.com/Huvinesh-Rajendran-12/keras-geometric.git
     cd keras-geometric
 
     # Install the package
@@ -45,7 +63,14 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
     pip install -e ".[dev]"
     ```
 
-    _(Note: If you plan to publish to PyPI later, update this section accordingly.)_
+    **Option 3: Using the uv Package Manager**
+    ```sh
+    # Install the latest stable version
+    uv pip install keras-geometric
+
+    # For development mode
+    uv pip install -e .
+    ```
 
 ## Core Concepts: Graph Neural Networks & Message Passing
 
@@ -201,6 +226,35 @@ python -m pytest tests/test_gcn_conv.py::TestGCNConvComprehensive::test_refactor
 # Run with verbose output
 python -m pytest -v tests/
 ```
+
+## Contributing
+
+We welcome contributions to Keras Geometric! Here's how you can contribute:
+
+1. **Fork the repository** and clone it locally.
+2. **Create a new branch** for your feature or bugfix.
+3. **Implement your changes** following the project's coding style.
+4. **Run the tests** to ensure your changes don't break existing functionality:
+   ```sh
+   python -m pytest
+   ```
+5. **Add tests** for your new features to ensure they work as expected.
+6. **Submit a pull request** with a clear description of the changes and any relevant documentation.
+
+### CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and delivery:
+
+- All pull requests and pushes to the main branch are automatically tested.
+- When a new version tag (e.g., `v0.2.0`) is pushed, the package is:
+  1. Built and tested across multiple Python versions and backends
+  2. Published to TestPyPI for verification
+  3. Published to PyPI for general availability
+  4. A GitHub release is created automatically
+
+### Versioning
+
+The project follows [Semantic Versioning](https://semver.org/). Version numbers are derived from Git tags and automatically applied during the build process.
 
 ## Citation
 
