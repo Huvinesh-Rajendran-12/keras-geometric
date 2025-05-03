@@ -106,7 +106,7 @@ class BenchmarkBase(unittest.TestCase):
         if TORCH_AVAILABLE and torch_fn is not None:
             # PyTorch setup
             x_torch = torch.tensor(x_np)
-            edge_index_torch = torch.tensor(edge_index_np)
+            edge_index_torch = torch.tensor(edge_index_np, dtype=torch.int64)
 
             torch_times = []
             for _ in range(num_runs):

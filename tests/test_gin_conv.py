@@ -120,7 +120,7 @@ class TestGINConvComprehensive(unittest.TestCase):
                 )
                 self.assertEqual(gin.output_dim, self.output_dim)
                 self.assertEqual(gin.mlp_hidden, mlp_hidden)
-                self.assertEqual(gin.aggr, aggregator) # Assumes GINConv.__init__ passes aggregator to super()
+                self.assertEqual(gin.aggregator, aggregator) # Assumes GINConv.__init__ passes aggregator to super()
                 self.assertEqual(gin.use_bias, use_bias)
                 self.assertEqual(gin.activation, activation) # Check stored identifier
 
@@ -172,7 +172,7 @@ class TestGINConvComprehensive(unittest.TestCase):
 
         # Check all expected keys are present
         expected_keys = ['name', 'trainable', 'dtype', 'output_dim', 'mlp_hidden',
-                         'aggr', 'use_bias', 'kernel_initializer', 'bias_initializer',
+                         'aggregator', 'use_bias', 'kernel_initializer', 'bias_initializer',
                          'activation']
         for key in expected_keys:
             self.assertIn(key, config, f"Key '{key}' missing from config")
@@ -180,7 +180,7 @@ class TestGINConvComprehensive(unittest.TestCase):
         # Check some values (assuming GINConv stores identifiers correctly now)
         self.assertEqual(config['output_dim'], self.output_dim + 1)
         self.assertEqual(config['mlp_hidden'], [32, 64])
-        self.assertEqual(config['aggr'], 'max')
+        self.assertEqual(config['aggregator'], 'max')
         self.assertFalse(config['use_bias'])
         self.assertEqual(config['activation'], 'tanh')
         self.assertEqual(config['kernel_initializer'], 'he_normal')

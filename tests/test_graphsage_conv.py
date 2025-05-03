@@ -204,14 +204,8 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase): # Renamed class
         self.assertEqual(layer1.use_bias, layer2.use_bias)
         self.assertEqual(layer1.name, layer2.name)
         # Check activation types
-        self.assertTrue(
-            isinstance(layer2.activation, activations.tanh) or
-            layer2.activation == activations.get('tanh')
-        )
-        self.assertTrue(
-            isinstance(layer2.pool_activation, activations.sigmoid) or
-            layer2.pool_activation == activations.get('sigmoid')
-        )
+        self.assertEqual(layer2.activation, activations.get('tanh'))
+        self.assertEqual(layer2.pool_activation, activations.get('sigmoid'))
 
 
     @unittest.skipIf(not TORCH_AVAILABLE, "PyTorch or PyTorch Geometric not available")
@@ -247,18 +241,32 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase): # Renamed class
                 )
 
                 # --- Sync Weights ---
-                keras_weights_neigh = keras_sage.lin_neigh.get_weights()
-                pyg_params_neigh = dict(pyg_sage.lin_r.named_parameters())
-                pyg_params_neigh['weight'].data.copy_(torch.tensor(keras_weights_neigh[0].T))
-                if not root_weight and use_bias: # Bias is in lin_r if no root
-                     pyg_params_neigh['bias'].data.copy_(torch.tensor(keras_weights_neigh[1]))
+                # Get Keras weights
+                keras_weights_neigh = keras_sage.lin_neigh.get_weights() # kernel
+                keras_weights_self = keras_sage.lin_self.get_weights() if root_weight else None # kernel
+                keras_bias = keras_sage.bias.numpy() if use_bias else None # separate bias
 
+                # Sync neighbor weights (W_r in Keras, maps to lin_r or lin_l in PyG)
                 if root_weight:
-                    keras_weights_self = keras_sage.lin_self.get_weights()
-                    pyg_params_self = dict(pyg_sage.lin_l.named_parameters())
-                    pyg_params_self['weight'].data.copy_(torch.tensor(keras_weights_self[0].T))
-                    if use_bias: # Sync final bias
-                         pyg_sage.bias.data.copy_(torch.tensor(keras_weights_neigh[1])) # Keras bias is in lin_neigh
+                    # If root_weight is True, PyG has lin_r for neighbors
+                    pyg_sage.lin_r.weight.data.copy_(torch.tensor(keras_weights_neigh[0].T))
+                else:
+                    # If root_weight is False, PyG might use lin_l for neighbors
+                    pyg_sage.lin_l.weight.data.copy_(torch.tensor(keras_weights_neigh[0].T))
+
+
+                # Sync self weights (W_l in Keras, maps to lin_l in PyG) if root_weight is True
+                if root_weight and keras_weights_self is not None:
+                    pyg_sage.lin_l.weight.data.copy_(torch.tensor(keras_weights_self[0].T))
+
+                # Sync bias if use_bias is True
+                if use_bias and keras_bias is not None:
+                    if root_weight:
+                        # Bias goes to lin_l in PyG when root_weight=True
+                        pyg_sage.lin_l.bias.data.copy_(torch.tensor(keras_bias))
+                    else:
+                        # Bias goes to lin_l in PyG when root_weight=False (assuming lin_l is used for neighbors)
+                        pyg_sage.lin_l.bias.data.copy_(torch.tensor(keras_bias))
 
                 print("Weights synced.")
 
