@@ -65,12 +65,8 @@ jobs:
         run: |
           uv venv .venv --seed
           source .venv/bin/activate
-          # Install all dev dependencies (including flake8, mypy, pip-audit, safety, etc.)
-          uv pip install -e ".[dev]"
-          # On Linux, only install base and dev dependencies (tensorflow only)
-          uv pip install -e ".[dev]"
-          # On macOS ARM64, you can also install the optional macos-metal extra for tensorflow-metal:
-          # uv pip install -e ".[dev,macos-metal]"
+          uv pip install flake8 mypy types-PyYAML # Add other lint deps if needed
+          uv pip install -e ".[dev]" # Install project for mypy analysis
       - name: Run flake8
         run: source .venv/bin/activate && uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Run mypy
@@ -129,7 +125,10 @@ jobs:
           - keras-backend: tensorflow
             backend-deps: '"tensorflow>=2.17" "keras>=3.0"' # Use tensorflow if not macOS
           - keras-backend: torch
-            backend-deps: '"torch" "torch-geometric" "torch-scatter" "keras>=3.0"'
+            # Define torch deps separately for split install
+            torch-deps: '"torch>=2.0.0"'
+            pyg-deps: '"torch-geometric>=2.5.0" "torch-scatter"'
+            keras-dep: '"keras>=3.0"'
           - keras-backend: jax
             backend-deps: '"jax[cpu]" "keras>=3.0"'
     steps:
@@ -153,9 +152,22 @@ jobs:
           uv venv .venv --seed
           source .venv/bin/activate
           echo "Installing backend: ${{ matrix.keras-backend }}"
-          uv pip install ${{ matrix.backend-deps }}
-          echo "Installing project + test dependencies..."
-          uv pip install -e ".[test]"
+          # --- FIX: Split torch installation ---
+          if [ "${{ matrix.keras-backend }}" = "torch" ]; then
+            echo "Installing Keras and Torch first..."
+            uv pip install ${{ matrix.keras-dep }} ${{ matrix.torch-deps }}
+            echo "Installing PyG/Scatter and Project + Test Extras..."
+            # Install remaining torch deps and project - torch is now available for scatter build
+            # Try without --no-build-isolation first
+            uv pip install ${{ matrix.pyg-deps }} -e ".[test]"
+            # If the above still fails, uncomment the next line:
+            # uv pip install --no-build-isolation ${{ matrix.pyg-deps }} -e ".[test]"
+          else
+            # Install other backends normally
+            uv pip install ${{ matrix.backend-deps }}
+            echo "Installing project + test dependencies..."
+            uv pip install -e ".[test]"
+          fi
       - name: Run tests
         env:
           KERAS_BACKEND: ${{ matrix.keras-backend }}
@@ -253,7 +265,7 @@ jobs:
     needs: build # Run after build is complete
     if: startsWith(github.ref, 'refs/tags/v') # Only run on tags
     environment:
-      name: testpypi
+      name: testpypi,
       url: https://test.pypi.org/p/keras-geometric
     steps:
       - name: Set up Python 3.11
@@ -280,7 +292,6 @@ jobs:
         run: ls -l dist/
       - name: Publish package to TestPyPI
         env:
-          # Use the secret defined in GitHub repo settings
           TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
           source .venv/bin/activate
@@ -290,7 +301,6 @@ jobs:
   create_github_release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    # Run after publishing to TestPyPI and generating notes
     needs: [publish_testpypi, generate_release_notes]
     if: startsWith(github.ref, 'refs/tags/v') # Only run on tags
     permissions:
@@ -300,14 +310,13 @@ jobs:
         uses: actions/download-artifact@v4
         with: { name: python-package-distributions, path: dist/ }
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2 # Use updated version
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.generate_release_notes.outputs.tag_name }} # Use tag name from previous job
+          tag_name: ${{ needs.generate_release_notes.outputs.tag_name }}
           name: Release ${{ needs.generate_release_notes.outputs.tag_name }}
           body: ${{ needs.generate_release_notes.outputs.release_notes }}
           files: dist/*
           draft: false
-          prerelease: contains(needs.generate_release_notes.outputs.tag_name, 'b') # Mark as pre-release if tag contains 'b'
+          prerelease: contains(needs.generate_release_notes.outputs.tag_name, 'b')
         env:
-          # GITHUB_TOKEN is automatically provided by GitHub Actions
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
