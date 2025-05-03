@@ -152,7 +152,9 @@ jobs:
           uv venv .venv --seed
           source .venv/bin/activate
           # Install build dependencies explicitly
-          uv pip install hatchling hatch-vcs
+          uv pip install hatchling hatch-vcs editables
+          # Install TensorFlow explicitly before installing the package
+          uv pip install tensorflow
           echo "Installing backend: ${{ matrix.keras-backend }}"
           # --- FIX: Split torch installation ---
           if [ "${{ matrix.keras-backend }}" = "torch" ]; then
@@ -248,7 +250,7 @@ jobs:
           uv venv .venv --seed
           source .venv/bin/activate
           # Explicitly install build dependencies
-          uv pip install build hatchling hatch-vcs
+          uv pip install build hatchling hatch-vcs editables
       - name: Build package
         run: |
           source .venv/bin/activate
