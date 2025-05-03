@@ -141,6 +141,7 @@ In the `examples/` directory, you'll find a collection of example models for var
 ### Basic Examples
 
 - `basic_gcn_example.py`: A minimal example showing how to use GCN for node classification on a synthetic graph
+- `simple_gatv2_example_fixed.py`: A simple example demonstrating the usage of `GATv2Conv` with a fixed graph structure. This file is also present in the root directory for quick access.
 
 ### Node Classification
 
