@@ -29,6 +29,7 @@ classifiers = [ # Find classifiers at https://pypi.org/classifiers/
 
 # --- Dependencies ---
 dependencies = [
+    "jax>=0.4.30",
     "keras>=3.0",
     "numpy>=2.0.2", # Or "<2.0" if TF < 2.17 compatibility is needed
     # "scipy>=1.11.0", # Uncomment ONLY if core layers directly use scipy

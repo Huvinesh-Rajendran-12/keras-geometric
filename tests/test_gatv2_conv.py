@@ -160,8 +160,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
         outputs_training = []
         for _ in range(3):
             output = gat(input_data, training=True)
-            try: output_np = output.cpu().detach().numpy()
-            except: output_np = output.numpy()
+            output_np = keras.ops.convert_to_numpy(output)
             outputs_training.append(output_np)
 
         # Verify training runs produce different outputs (dropout is active)
@@ -177,8 +176,7 @@ class TestGATv2ConvComprehensive(unittest.TestCase):
         outputs_inference = []
         for _ in range(3):
             output = gat(input_data, training=False)
-            try: output_np = output.cpu().detach().numpy()
-            except: output_np = output.numpy()
+            output_np = keras.ops.convert_to_numpy(output)
             outputs_inference.append(output_np)
 
         # Verify inference runs produce same outputs (dropout is not active)
