@@ -83,3 +83,6 @@ include = [
 [tool.hatch.build.targets.wheel]
 # Include only the source code needed for the wheel
 packages = ["src/keras_geometric"]
+
+[tool.mypy]
+ignore_missing_imports = true

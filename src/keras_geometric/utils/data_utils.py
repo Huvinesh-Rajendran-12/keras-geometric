@@ -162,9 +162,12 @@ def batch_graphs(graphs: List[GraphData]) -> GraphData:
     total_edges = sum(g.num_edges for g in graphs)
     node_feature_dim = graphs[0].num_node_features
 
-    # Pre-allocate arrays
-    batch_x = ops.zeros((total_nodes, node_feature_dim), dtype=graphs[0].x.dtype)
-    batch_edge_index = ops.zeros((2, total_edges), dtype=graphs[0].edge_index.dtype)
+    # Pre-allocate arrays with safe dtype checks
+    x_dtype = graphs[0].x.dtype if graphs[0].x is not None and hasattr(graphs[0].x, 'dtype') else 'float32'
+    batch_x = ops.zeros((total_nodes, node_feature_dim), dtype=x_dtype)
+
+    edge_index_dtype = graphs[0].edge_index.dtype if graphs[0].edge_index is not None and hasattr(graphs[0].edge_index, 'dtype') else 'int32'
+    batch_edge_index = ops.zeros((2, total_edges), dtype=edge_index_dtype)
 
     # Track batch indices for each node
     batch_indices = ops.zeros((total_nodes,), dtype='int32')
@@ -172,7 +175,8 @@ def batch_graphs(graphs: List[GraphData]) -> GraphData:
     has_edge_attr = all(g.edge_attr is not None for g in graphs)
     if has_edge_attr:
         edge_feature_dim = graphs[0].num_edge_features
-        batch_edge_attr = ops.zeros((total_edges, edge_feature_dim), dtype=graphs[0].edge_attr.dtype)
+        edge_attr_dtype = graphs[0].edge_attr.dtype if graphs[0].edge_attr is not None and hasattr(graphs[0].edge_attr, 'dtype') else 'float32'
+        batch_edge_attr = ops.zeros((total_edges, edge_feature_dim), dtype=edge_attr_dtype)
     else:
         batch_edge_attr = None
 
@@ -180,11 +184,12 @@ def batch_graphs(graphs: List[GraphData]) -> GraphData:
     if has_y:
         # Assume all targets have the same shape
         y_shape = ops.shape(graphs[0].y)
+        y_dtype = graphs[0].y.dtype if graphs[0].y is not None and hasattr(graphs[0].y, 'dtype') else 'float32'
         if len(y_shape) == 1:  # Graph-level target
-            batch_y = ops.zeros((len(graphs), y_shape[0]), dtype=graphs[0].y.dtype)
+            batch_y = ops.zeros((len(graphs), y_shape[0]), dtype=y_dtype)
         else:
             # Assume node-level targets
-            batch_y = ops.zeros((total_nodes, y_shape[1]), dtype=graphs[0].y.dtype)
+            batch_y = ops.zeros((total_nodes, y_shape[1]), dtype=y_dtype)
     else:
         batch_y = None
 
