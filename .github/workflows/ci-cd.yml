@@ -14,6 +14,7 @@ on:
 env:
   UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv # Cache within workspace
   PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+  UV_GLOBAL_CACHE: "true" # Enable global uv caching
 
 jobs:
   # --- Filter Job ---
@@ -57,7 +58,9 @@ jobs:
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.UV_CACHE_DIR }}
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-uv-lint-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-lint-
@@ -92,7 +95,9 @@ jobs:
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.UV_CACHE_DIR }}
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-uv-scan-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-scan-
@@ -143,7 +148,9 @@ jobs:
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.UV_CACHE_DIR }}
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ matrix.keras-backend }}-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ matrix.keras-backend }}-
@@ -241,7 +248,9 @@ jobs:
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.UV_CACHE_DIR }}
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-uv-build-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-build-
@@ -280,7 +289,9 @@ jobs:
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.UV_CACHE_DIR }}
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-uv-publish-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-publish-
@@ -319,7 +330,9 @@ jobs:
       - name: Configure uv cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.UV_CACHE_DIR }}
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-uv-publish-pypi-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-uv-publish-pypi-

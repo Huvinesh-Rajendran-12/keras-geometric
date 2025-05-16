@@ -7,7 +7,8 @@ import unittest
 # --- Keras Imports ---
 import keras
 import numpy as np
-from keras import layers
+
+# from keras import layers
 
 # Check backend and set skip flag
 KERAS_BACKEND_IS_TORCH = False
@@ -20,7 +21,7 @@ try:
 except Exception:
      print("Warning: Could not determine Keras backend.")
 
-from keras import initializers
+# from keras import initializers
 
 # --- Add src directory to path ---
 SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
@@ -39,7 +40,8 @@ except Exception as e:
 # --- PyTorch Geometric Imports (Optional) ---
 try:
     import torch
-    import torch.nn as nn
+
+    # import torch.nn as nn
     from torch_geometric.nn import GATv2Conv as PyGGATv2Conv
 
     # Force CPU execution for PyTorch side

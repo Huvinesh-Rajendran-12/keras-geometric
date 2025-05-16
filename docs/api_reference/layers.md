@@ -41,13 +41,60 @@ H' = σ(D⁻⁰⁵ Ã D⁻⁰⁵ X W), where Ã = A + I.
 - **add_self_loops** (_bool_): Whether to add self-loops to the adjacency matrix. Default is True.
 - **normalize** (_bool_): Whether to apply symmetric normalization. Default is True.
 
+### GATv2Conv
+
+```python
+class GATv2Conv(MessagePassing)
+```
+
+Graph Attention Network v2 (GATv2) Convolution Layer as described in 'How Attentive are Graph Attention Networks?' (Brody et al., 2021).
+
+Implements the improved Graph Attention mechanism that uses dynamic attention for better expressiveness.
+
+**Arguments:**
+
+- **output_dim** (_int_): Dimensionality of the output features per head.
+- **heads** (_int_): Number of multi-head attentions. Default is 1.
+- **concat** (_bool_): Whether to concatenate or average multi-head attentions. Default is True.
+- **negative_slope** (_float_): LeakyReLU negative slope. Default is 0.2.
+- **dropout** (_float_): Dropout rate for attention coefficients. Default is 0.0.
+- **use_bias** (_bool_): Whether to add bias terms. Default is True.
+- **kernel_initializer** (_str_): Initializer for kernel weights. Default is 'glorot_uniform'.
+- **bias_initializer** (_str_): Initializer for bias weights. Default is 'zeros'.
+- **att_initializer** (_str_): Initializer for attention weights. Default is 'glorot_uniform'.
+- **add_self_loops** (_bool_): Whether to add self-loops to the graph. Default is True.
+
+### SAGEConv
+
+```python
+class SAGEConv(MessagePassing)
+```
+
+GraphSAGE Convolution Layer as described in 'Inductive Representation Learning on Large Graphs' (Hamilton et al., 2017).
+
+Implements the GraphSAGE layer with customizable aggregation methods including 'pooling' which applies an MLP before aggregation.
+
+**Arguments:**
+
+- **output_dim** (_int_): Dimensionality of the output features.
+- **aggregator** (_str_): Aggregation method ('mean', 'max', 'sum', 'pooling'). Default is 'mean'.
+- **normalize** (_bool_): Whether to L2-normalize the output embeddings. Default is False.
+- **root_weight** (_bool_): If False, exclude the transformed root node features in the output. Default is True.
+- **use_bias** (_bool_): Whether to add a bias term. Default is True.
+- **activation** (_str | callable | None_): Activation function for the output. Default is 'relu'.
+- **pool_activation** (_str | callable | None_): Activation for the pooling aggregator's MLP. Default is 'relu'.
+- **kernel_initializer** (_str_): Initializer for kernel weights. Default is 'glorot_uniform'.
+- **bias_initializer** (_str_): Initializer for bias weights. Default is 'zeros'.
+
 ### GINConv
 
 ```python
 class GINConv(MessagePassing)
 ```
 
-Graph Isomorphism Network (GIN) Convolution Layer.
+Graph Isomorphism Network (GIN) Convolution Layer as described in 'How Powerful are Graph Neural Networks?' (Xu et al., 2019).
+
+Implements the graph isomorphism layer with MLP as the update function.
 
 **Arguments:**
 

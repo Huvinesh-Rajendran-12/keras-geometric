@@ -13,12 +13,14 @@ if SRC_DIR not in sys.path:
 
 # Import modules from the package
 from keras_geometric.layers import GCNConv, GINConv
-from keras_geometric.utils.data_utils import GraphData
+
+# from keras_geometric.utils.data_utils import GraphData
 
 # Try to import PyTorch Geometric for comparison
 try:
     import torch
-    import torch_geometric
+
+    # import torch_geometric
     from torch_geometric.nn import GCNConv as PyGGCNConv
     from torch_geometric.nn import GINConv as PyGGINConv
     TORCH_AVAILABLE = True

@@ -27,7 +27,7 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
 
 1.  **Prerequisites:**
 
-    - Python 3.12 or later.
+    - Python 3.9 or later.
     - Keras 3 (version 3.9.0 or later). You can install/update it using pip:
       ```sh
       pip install --upgrade keras>=3.9.0

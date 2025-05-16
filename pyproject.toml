@@ -88,3 +88,6 @@ packages = ["src/keras_geometric"]
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.pyright]
+venv = ".venv"

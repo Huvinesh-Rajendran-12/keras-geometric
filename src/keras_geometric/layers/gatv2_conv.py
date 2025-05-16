@@ -128,8 +128,9 @@ class GATv2Conv(MessagePassing):
             num_nodes = ops.shape(x)[0]
             edge_index = add_self_loops(edge_index, num_nodes)
 
-        # Pass training flag to propagate
-        return self.propagate(x, edge_index, training=training)
+        # Pass data and training flag to propagate
+        # MessagePassing expects inputs as a tuple/list
+        return self.propagate(inputs=(x, edge_index), training=training)
 
     def _compute_attention(self, h_i, h_j, target_idx, num_nodes):
         """ Compute attention coefficients for each edge. """
@@ -157,7 +158,7 @@ class GATv2Conv(MessagePassing):
         sum_per_edge = ops.take(sum_per_target, target_nodes, axis=0)
         return ops.divide(exp_alpha, ops.add(sum_per_edge, 1e-10))
 
-    def propagate(self, x, edge_index, **kwargs):
+    def propagate(self, inputs, **kwargs):
         """ Execute the complete GATv2 message passing flow.
 
         Args:
@@ -165,7 +166,8 @@ class GATv2Conv(MessagePassing):
             edge_index: Edge indices tensor of shape [2, E]
             **kwargs: Additional arguments, including training flag
         """
-        # Extract training flag from kwargs
+        # Extract node features, edge indices, and training flag from inputs/kwargs
+        x, edge_index = inputs
         training = kwargs.get('training', None)
         N = ops.shape(x)[0]
         E = ops.shape(edge_index)[1]
