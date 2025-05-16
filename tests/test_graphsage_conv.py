@@ -14,7 +14,7 @@ KERAS_BACKEND_IS_TORCH = False
 try:
     if keras.backend.backend() == 'torch':
         KERAS_BACKEND_IS_TORCH = True
-        print(f"Keras backend confirmed: 'torch'")
+        print("Keras backend confirmed: 'torch'")
     else:
         print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison test will be skipped.")
 except Exception:

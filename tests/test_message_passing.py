@@ -177,5 +177,35 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                     err_msg=f"Empty graph output not zero for aggregator '{aggr}'"
                 )
 
+    def test_single_node_graph(self):
+        """Test behavior with a single-node graph."""
+        print("\n--- Testing Single Node Graph Handling ---")
+        # Create a graph with a single node that has a self-loop
+        single_node_features = keras.ops.convert_to_tensor(
+            np.random.randn(1, self.num_features).astype(np.float32))
+        single_node_edge_index = keras.ops.convert_to_tensor(
+            np.array([[0], [0]]), dtype='int32')  # Self-loop
+
+        for aggr in self.aggregation_methods:
+            with self.subTest(aggregation=aggr):
+                mp = DummyMessagePassing(aggregator=aggr)
+                output = mp([single_node_features, single_node_edge_index])
+
+                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
+                output_np = keras.ops.convert_to_numpy(output)
+
+                # Output should have shape [1, num_features]
+                expected_shape = (1, self.num_features)
+                self.assertEqual(output_np.shape, expected_shape)
+
+                # Since it's a self-loop, the output should be the input feature
+                # (for mean/sum/max with a single value, they all return that value)
+                np.testing.assert_allclose(
+                    output_np,
+                    keras.ops.convert_to_numpy(single_node_features),
+                    rtol=1e-5, atol=1e-5,
+                    err_msg=f"Single node graph output incorrect for aggregator '{aggr}'"
+                )
+
 if __name__ == '__main__':
     unittest.main()

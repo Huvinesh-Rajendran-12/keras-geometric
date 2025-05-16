@@ -37,7 +37,6 @@ except Exception as e:
 # --- PyTorch Geometric Imports (Optional) ---
 try:
     import torch
-    import torch.nn as nn
     from torch_geometric.nn import GCNConv as PyGGCNConv
 
     # Force CPU execution for PyTorch side
@@ -47,7 +46,17 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
     class PyGGCNConv:
-        def __init__(self, *args, **kwargs): pass
+        # Dummy class to allow type checking/imports when PyTorch/PyG are not installed
+        def __init__(self, *args, **kwargs):
+            # This __init__ should not be called if unittest.skipIf works correctly
+            # but adding a pass is harmless.
+            pass
+        def named_parameters(self):
+            # Dummy method to avoid AttributeError in skipped test code
+            return {}
+        def __call__(self, *args, **kwargs):
+            # Dummy method to avoid TypeError in skipped test code
+            raise NotImplementedError("PyGGCNConv dummy is not callable. PyTorch/PyG is not available.")
     print("PyTorch or PyTorch Geometric not available. Skipping comparison tests.")
 
 # --- Test Class Definition ---
