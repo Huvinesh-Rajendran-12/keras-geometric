@@ -256,7 +256,7 @@ class TestGINConvComprehensive(unittest.TestCase):
                     pyg_gin = PyGGINConv(nn=pyg_mlp, aggr=pyg_reduce, train_eps=False) # On CPU
 
                     # --- Sync Weights ---
-                    keras_dense_layers = [l for l in keras_gin.mlp.layers if isinstance(l, layers.Dense)]
+                    keras_dense_layers = [layer for layer in keras_gin.mlp.layers if isinstance(layer, layers.Dense)]
                     pyg_linear_layers = [m for m in pyg_gin.nn if isinstance(m, nn.Linear)]
                     if len(keras_dense_layers) != len(pyg_linear_layers):
                         self.fail(f"MLP layer count mismatch Keras({len(keras_dense_layers)}) vs PyG({len(pyg_linear_layers)}) for {subtest_msg}")
@@ -313,7 +313,7 @@ class TestGINConvComprehensive(unittest.TestCase):
                         print(f"✅ FINAL outputs match for: {subtest_msg}")
                     except AssertionError as e:
                         print(f"❌ FINAL outputs DO NOT match for: {subtest_msg}")
-                        print(e);
+
                         # Provide more context on failure
                         abs_diff = np.abs(keras_output_np - pyg_output_np)
                         rel_diff = abs_diff / (np.abs(pyg_output_np) + 1e-8) # Avoid division by zero
