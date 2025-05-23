@@ -5,9 +5,9 @@ from .citation import CitationDataset, CiteSeer, PubMed
 from .cora import CoraDataset
 
 __all__ = [
-    'Dataset',
-    'CitationDataset',
-    'CoraDataset',
-    'CiteSeer',
-    'PubMed',
+    "Dataset",
+    "CitationDataset",
+    "CoraDataset",
+    "CiteSeer",
+    "PubMed",
 ]

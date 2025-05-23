@@ -86,8 +86,49 @@ include = [
 # Include only the source code needed for the wheel
 packages = ["src/keras_geometric"]
 
-[tool.mypy]
-ignore_missing_imports = true
+# --- Ruff Configuration ---
+[tool.ruff]
+# Set line length for automatic formatting
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.format]
+# Format code automatically
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint]
+# Focus on the important rules, exclude overly strict type checking
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    # Type checking - but relaxed
+    "ANN204",  # Missing return type annotation for special method (like __init__)
+    "ANN201",  # Missing return type annotation for public function
+    "ANN206",  # Missing return type annotation for classmethod
+]
+
+ignore = [
+    "E501",   # Line too long (let ruff format handle this)
+    "ANN401", # Allow 'Any' types (appropriate for ML/tensor libraries)
+    "ANN001", # Don't require parameter annotations (too strict for ML)
+    "ANN003", # Don't require **kwargs annotations (too strict)
+    "ANN202", # Don't require private function annotations
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Relax rules for test files and datasets
+"tests/*" = ["ANN"]  # Skip all type annotation checks in tests
+"src/keras_geometric/datasets/*" = ["ANN"]  # Skip type checking in datasets
+
+[tool.ruff.lint.isort]
+known-first-party = ["keras_geometric"]
 
 [tool.pyright]
 venv = ".venv"

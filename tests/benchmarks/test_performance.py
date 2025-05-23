@@ -6,13 +6,16 @@ import unittest
 import keras
 import numpy as np
 
+from keras_geometric.layers import GCNConv, GINConv
+
 # Add the source directory to the path
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'src')
+SRC_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src"
+)
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 # Import modules from the package
-from keras_geometric.layers import GCNConv, GINConv
 
 # from keras_geometric.utils.data_utils import GraphData
 
@@ -23,10 +26,13 @@ try:
     # import torch_geometric
     from torch_geometric.nn import GCNConv as PyGGCNConv
     from torch_geometric.nn import GINConv as PyGGINConv
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    print("PyTorch and/or PyTorch Geometric not available. Skipping comparison benchmarks.")
+    print(
+        "PyTorch and/or PyTorch Geometric not available. Skipping comparison benchmarks."
+    )
 
 
 class BenchmarkBase(unittest.TestCase):
@@ -40,8 +46,8 @@ class BenchmarkBase(unittest.TestCase):
             torch.manual_seed(42)
 
         # Define common test data sizes
-        self.small_size = (100, 16)     # 100 nodes, 16 features
-        self.medium_size = (1000, 64)   # 1k nodes, 64 features
+        self.small_size = (100, 16)  # 100 nodes, 16 features
+        self.medium_size = (1000, 64)  # 1k nodes, 64 features
         self.large_size = (10000, 128)  # 10k nodes, 128 features
 
         # Define number of edges for each size
@@ -58,7 +64,9 @@ class BenchmarkBase(unittest.TestCase):
         x = np.random.randn(num_nodes, num_features).astype(np.float32)
 
         # Random edges
-        edge_index = np.random.randint(0, num_nodes, size=(2, num_edges)).astype(np.int32)
+        edge_index = np.random.randint(0, num_nodes, size=(2, num_edges)).astype(
+            np.int32
+        )
 
         return x, edge_index
 
@@ -69,8 +77,9 @@ class BenchmarkBase(unittest.TestCase):
         end_time = time.time()
         return end_time - start_time, result
 
-    def _run_benchmark(self, keras_fn, torch_fn=None, data_size="small",
-                      output_dim=32, num_runs=None):
+    def _run_benchmark(
+        self, keras_fn, torch_fn=None, data_size="small", output_dim=32, num_runs=None
+    ):
         """Run benchmark comparing Keras Geometric vs PyTorch Geometric."""
         if num_runs is None:
             num_runs = self.num_runs
@@ -89,16 +98,20 @@ class BenchmarkBase(unittest.TestCase):
             raise ValueError(f"Unknown data size: {data_size}")
 
         # Generate data
-        x_np, edge_index_np = self._generate_graph_data(num_nodes, num_features, num_edges)
+        x_np, edge_index_np = self._generate_graph_data(
+            num_nodes, num_features, num_edges
+        )
 
         # Keras setup
         x_keras = keras.ops.convert_to_tensor(x_np)
-        edge_index_keras = keras.ops.convert_to_tensor(edge_index_np, dtype='int32')
+        edge_index_keras = keras.ops.convert_to_tensor(edge_index_np, dtype="int32")
 
         # Run Keras benchmark
         keras_times = []
         for _ in range(num_runs):
-            time_taken, _ = self._measure_time(keras_fn, x_keras, edge_index_keras, output_dim)
+            time_taken, _ = self._measure_time(
+                keras_fn, x_keras, edge_index_keras, output_dim
+            )
             keras_times.append(time_taken)
 
         keras_avg_time = sum(keras_times) / len(keras_times)
@@ -112,19 +125,21 @@ class BenchmarkBase(unittest.TestCase):
 
             torch_times = []
             for _ in range(num_runs):
-                time_taken, _ = self._measure_time(torch_fn, x_torch, edge_index_torch, output_dim)
+                time_taken, _ = self._measure_time(
+                    torch_fn, x_torch, edge_index_torch, output_dim
+                )
                 torch_times.append(time_taken)
 
             torch_avg_time = sum(torch_times) / len(torch_times)
 
         return {
-            'keras_time': keras_avg_time,
-            'torch_time': torch_avg_time,
-            'data_size': data_size,
-            'num_nodes': num_nodes,
-            'num_features': num_features,
-            'num_edges': num_edges,
-            'output_dim': output_dim
+            "keras_time": keras_avg_time,
+            "torch_time": torch_avg_time,
+            "data_size": data_size,
+            "num_nodes": num_nodes,
+            "num_features": num_features,
+            "num_edges": num_edges,
+            "output_dim": output_dim,
         }
 
 
@@ -148,30 +163,38 @@ class TestGCNPerformance(BenchmarkBase):
         results = self._run_benchmark(
             self._run_keras_gcn,
             self._run_torch_gcn if TORCH_AVAILABLE else None,
-            "small"
+            "small",
         )
 
-        print(f"\nGCNConv Small Benchmark Results:")
-        print(f"  Data: {results['num_nodes']} nodes, {results['num_features']} features, {results['num_edges']} edges")
+        print("\nGCNConv Small Benchmark Results:")
+        print(
+            f"  Data: {results['num_nodes']} nodes, {results['num_features']} features, {results['num_edges']} edges"
+        )
         print(f"  Keras Geometric: {results['keras_time']:.6f} seconds")
-        if results['torch_time']:
+        if results["torch_time"]:
             print(f"  PyTorch Geometric: {results['torch_time']:.6f} seconds")
-            print(f"  Ratio (PyG/KerasG): {results['torch_time']/results['keras_time']:.2f}x")
+            print(
+                f"  Ratio (PyG/KerasG): {results['torch_time'] / results['keras_time']:.2f}x"
+            )
 
     def test_gcn_medium(self):
         """Benchmark GCNConv on medium graphs."""
         results = self._run_benchmark(
             self._run_keras_gcn,
             self._run_torch_gcn if TORCH_AVAILABLE else None,
-            "medium"
+            "medium",
         )
 
-        print(f"\nGCNConv Medium Benchmark Results:")
-        print(f"  Data: {results['num_nodes']} nodes, {results['num_features']} features, {results['num_edges']} edges")
+        print("\nGCNConv Medium Benchmark Results:")
+        print(
+            f"  Data: {results['num_nodes']} nodes, {results['num_features']} features, {results['num_edges']} edges"
+        )
         print(f"  Keras Geometric: {results['keras_time']:.6f} seconds")
-        if results['torch_time']:
+        if results["torch_time"]:
             print(f"  PyTorch Geometric: {results['torch_time']:.6f} seconds")
-            print(f"  Ratio (PyG/KerasG): {results['torch_time']/results['keras_time']:.2f}x")
+            print(
+                f"  Ratio (PyG/KerasG): {results['torch_time'] / results['keras_time']:.2f}x"
+            )
 
 
 class TestGINPerformance(BenchmarkBase):
@@ -180,7 +203,7 @@ class TestGINPerformance(BenchmarkBase):
     def _run_keras_gin(self, x, edge_index, output_dim):
         """Run GINConv forward pass."""
         # Create a GIN layer with a simple MLP
-        gin = GINConv(output_dim=output_dim, mlp_hidden=[output_dim*2])
+        gin = GINConv(output_dim=output_dim, mlp_hidden=[output_dim * 2])
         return gin([x, edge_index])
 
     def _run_torch_gin(self, x, edge_index, output_dim):
@@ -190,9 +213,9 @@ class TestGINPerformance(BenchmarkBase):
 
         # Create a simple MLP for the GINConv
         nn_model = torch.nn.Sequential(
-            torch.nn.Linear(x.size(1), output_dim*2),
+            torch.nn.Linear(x.size(1), output_dim * 2),
             torch.nn.ReLU(),
-            torch.nn.Linear(output_dim*2, output_dim)
+            torch.nn.Linear(output_dim * 2, output_dim),
         )
         gin = PyGGINConv(nn=nn_model)
         return gin(x, edge_index)
@@ -202,31 +225,39 @@ class TestGINPerformance(BenchmarkBase):
         results = self._run_benchmark(
             self._run_keras_gin,
             self._run_torch_gin if TORCH_AVAILABLE else None,
-            "small"
+            "small",
         )
 
-        print(f"\nGINConv Small Benchmark Results:")
-        print(f"  Data: {results['num_nodes']} nodes, {results['num_features']} features, {results['num_edges']} edges")
+        print("\nGINConv Small Benchmark Results:")
+        print(
+            f"  Data: {results['num_nodes']} nodes, {results['num_features']} features, {results['num_edges']} edges"
+        )
         print(f"  Keras Geometric: {results['keras_time']:.6f} seconds")
-        if results['torch_time']:
+        if results["torch_time"]:
             print(f"  PyTorch Geometric: {results['torch_time']:.6f} seconds")
-            print(f"  Ratio (PyG/KerasG): {results['torch_time']/results['keras_time']:.2f}x")
+            print(
+                f"  Ratio (PyG/KerasG): {results['torch_time'] / results['keras_time']:.2f}x"
+            )
 
     def test_gin_medium(self):
         """Benchmark GINConv on medium graphs."""
         results = self._run_benchmark(
             self._run_keras_gin,
             self._run_torch_gin if TORCH_AVAILABLE else None,
-            "medium"
+            "medium",
         )
 
-        print(f"\nGINConv Medium Benchmark Results:")
-        print(f"  Data: {results['num_nodes']} nodes, {results['num_features']} features, {results['num_edges']} edges")
+        print("\nGINConv Medium Benchmark Results:")
+        print(
+            f"  Data: {results['num_nodes']} nodes, {results['num_features']} features, {results['num_edges']} edges"
+        )
         print(f"  Keras Geometric: {results['keras_time']:.6f} seconds")
-        if results['torch_time']:
+        if results["torch_time"]:
             print(f"  PyTorch Geometric: {results['torch_time']:.6f} seconds")
-            print(f"  Ratio (PyG/KerasG): {results['torch_time']/results['keras_time']:.2f}x")
+            print(
+                f"  Ratio (PyG/KerasG): {results['torch_time'] / results['keras_time']:.2f}x"
+            )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

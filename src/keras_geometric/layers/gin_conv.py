@@ -1,3 +1,4 @@
+from typing import Any
 
 import keras
 from keras import layers, ops
@@ -29,16 +30,19 @@ class GINConv(MessagePassing):
 
     Inherits from MessagePassing layer for graph convolution operations.
     """
-    def __init__(self,
-            output_dim: int,
-            mlp_hidden: list[int],
-            aggregator: str = 'mean',
-            use_bias: bool = True,
-            kernel_initializer: str = 'glorot_uniform',
-            bias_initializer: str = 'zeros',
-            activation: str = 'relu',
-            **kwargs):
-        super(GINConv, self).__init__(aggregator=aggregator, **kwargs)
+
+    def __init__(
+        self,
+        output_dim: int,
+        mlp_hidden: list[int],
+        aggregator: str = "mean",
+        use_bias: bool = True,
+        kernel_initializer: str = "glorot_uniform",
+        bias_initializer: str = "zeros",
+        activation: str = "relu",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(aggregator=aggregator, **kwargs)
         self.output_dim = output_dim
         self.mlp_hidden = mlp_hidden
         self.use_bias = use_bias
@@ -46,10 +50,11 @@ class GINConv(MessagePassing):
         self.bias_initializer = bias_initializer
         self.activation = activation
 
-        assert self.aggregator in ['mean', 'max', 'sum'], f"Invalid aggregator: {self.aggregator}. Must be one of ['mean', 'max', 'sum']"
+        assert (
+            self.aggregator in ["mean", "max", "sum"]
+        ), f"Invalid aggregator: {self.aggregator}. Must be one of ['mean', 'max', 'sum']"
 
-
-    def build(self, input_shape):
+    def build(self, input_shape: Any) -> None:
         """
         Build the layer weights
 
@@ -60,17 +65,18 @@ class GINConv(MessagePassing):
         if len(input_dim) != 2:
             raise ValueError(f"Input shape must be (N, F), got {input_dim}")
 
-        mlp_layers = []
+        mlp_layers: list[layers.Dense] = []
         for h_dim in self.mlp_hidden:
             mlp_layers.append(
                 layers.Dense(
-                units=h_dim,
-                activation=self.activation,
-                kernel_initializer=self.kernel_initializer,
-                bias_initializer=self.bias_initializer,
-                use_bias=self.use_bias,
-                name=f"mlp_hidden_{len(mlp_layers) + 1}",
-                ))
+                    units=h_dim,
+                    activation=self.activation,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    use_bias=self.use_bias,
+                    name=f"mlp_hidden_{len(mlp_layers) + 1}",
+                )
+            )
 
         mlp_layers.append(
             layers.Dense(
@@ -79,11 +85,12 @@ class GINConv(MessagePassing):
                 kernel_initializer=self.kernel_initializer,
                 bias_initializer=self.bias_initializer,
                 use_bias=self.use_bias,
-                name="mlp_output"))
+                name="mlp_output",
+            )
+        )
         self.mlp = keras.Sequential(mlp_layers)
 
-
-    def call(self, inputs):
+    def call(self, inputs: Any) -> Any:
         """
         Perform GIN convolution
 
@@ -103,24 +110,26 @@ class GINConv(MessagePassing):
         x = self.mlp(h)
         return x
 
-    def get_config(self):
+    def get_config(self) -> dict[str, Any]:
         """
         Serializes the layer configuration
         """
-        config = super(GINConv, self).get_config()
-        config.update({
-            'output_dim': self.output_dim,
-            'mlp_hidden': self.mlp_hidden,
-            'use_bias': self.use_bias,
-            # serialize initializers and activations
-            'kernel_initializer': self.kernel_initializer,
-            'bias_initializer': self.bias_initializer,
-            'activation': self.activation
-        })
+        config = super().get_config()
+        config.update(
+            {
+                "output_dim": self.output_dim,
+                "mlp_hidden": self.mlp_hidden,
+                "use_bias": self.use_bias,
+                # serialize initializers and activations
+                "kernel_initializer": self.kernel_initializer,
+                "bias_initializer": self.bias_initializer,
+                "activation": self.activation,
+            }
+        )
         return config
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: dict[str, Any]) -> "GINConv":
         """
         Creates a layer from its config.
         """
