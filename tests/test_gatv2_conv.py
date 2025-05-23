@@ -9,6 +9,8 @@ import keras
 import numpy as np
 
 
+
+
 # --- Backend Detection ---
 def get_keras_backend():
     """Get the current Keras backend safely."""
@@ -27,6 +29,7 @@ else:
     print(
         f"Warning: Keras backend is '{KERAS_BACKEND}', not 'torch'. Numerical comparison tests will be skipped."
     )
+
 
 # --- Add src directory to path ---
 SRC_DIR = os.path.join(
@@ -51,6 +54,7 @@ PyGGATv2Conv = None
 
 try:
     import torch
+
     from torch_geometric.nn import GATv2Conv as PyGGATv2Conv
 
     # Force CPU execution for consistent testing

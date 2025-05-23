@@ -228,6 +228,5 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                     err_msg=f"Single node graph output incorrect for aggregator '{aggr}'",
                 )
 
-
 if __name__ == "__main__":
     unittest.main()

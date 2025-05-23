@@ -144,6 +144,7 @@ class TestGINConvComprehensive(unittest.TestCase):
             self.activation_options,
         ):
             if GINConv is not None:
+
                 with self.subTest(
                     mlp_hidden=mlp_hidden,
                     aggregator=aggregator,
@@ -474,6 +475,7 @@ class TestGINConvComprehensive(unittest.TestCase):
                         print("   PyG sample:", pyg_output_np[0, :5])
                         # Optionally fail the test immediately on first mismatch
                         # self.fail(f"Final output mismatch for {subtest_msg}")
+
 
 
 if __name__ == "__main__":

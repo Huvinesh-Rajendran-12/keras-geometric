@@ -11,6 +11,7 @@ from .utils import GraphData, add_self_loops, batch_graphs, compute_gcn_normaliz
 
 # Datasets (when available)
 # Use more specific import checks to avoid silent failures
+
 def get_dataset_classes():
     try:
         from .datasets.citation import CiteSeer, PubMed

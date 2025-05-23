@@ -179,6 +179,7 @@ class GATv2Conv(MessagePassing):
         n = ops.shape(x)[0]
         e = ops.shape(edge_index)[1]
 
+
         if self.linear_transform is None or self.att is None:
             raise RuntimeError("Layer weights not built. Call layer on data first.")
 
