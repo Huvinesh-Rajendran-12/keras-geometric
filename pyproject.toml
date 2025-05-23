@@ -60,7 +60,7 @@ dev = [
     "keras-geometric[test]",   # Includes all test deps
     "pre-commit>=4.2.0",       # Code quality hooks
     "ruff>=0.8.0",             # Fast Python linter/formatter
-    "mypy>=1.0.0",             # Type checking
+    "pyrefly",                 # Type checking
     "twine>=5.0.0",            # Package publishing
     "build>=1.0.0",            # Package building
     "hatch>=1.12.0",           # Build backend

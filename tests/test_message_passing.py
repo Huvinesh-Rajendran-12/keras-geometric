@@ -41,10 +41,12 @@ except Exception as e:
     MessagePassing = None
 
 
+# pyrefly: ignore  # invalid-inheritance
 class DummyMessagePassing(MessagePassing):
     """A simple implementation of MessagePassing for testing."""
 
     def __init__(self, aggregator="sum", **kwargs):
+        # pyrefly: ignore  # unexpected-keyword
         super().__init__(aggregator=aggregator, **kwargs)
 
     def message(self, x_i, x_j):
@@ -100,6 +102,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
                 mp = DummyMessagePassing(aggregator=aggr)
+                # pyrefly: ignore  # not-callable
                 output = mp([self.features_keras, self.edge_index_keras])
 
                 # Use keras.ops.convert_to_numpy for backend-agnostic conversion
@@ -131,6 +134,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                 neighbor_features = x[neighbors]
 
                 if method == "mean":
+                    # pyrefly: ignore  # no-matching-overload, bad-argument-type
                     out[target_idx] = np.mean(neighbor_features, axis=0)
                 elif method == "max":
                     out[target_idx] = np.max(neighbor_features, axis=0)
@@ -141,6 +145,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
                 mp = DummyMessagePassing(aggregator=aggr)
+                # pyrefly: ignore  # not-callable
                 output = mp([self.features_keras, self.edge_index_keras])
 
                 # Use keras.ops.convert_to_numpy for backend-agnostic conversion
@@ -153,8 +158,10 @@ class TestMessagePassingComprehensive(unittest.TestCase):
 
                 # Compare actual vs expected
                 try:
+                    # pyrefly: ignore  # no-matching-overload
                     np.testing.assert_allclose(
                         output_np,
+                        # pyrefly: ignore  # bad-argument-type
                         expected_output,
                         rtol=1e-5,
                         atol=1e-5,
@@ -179,6 +186,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
                 mp = DummyMessagePassing(aggregator=aggr)
+                # pyrefly: ignore  # not-callable
                 output = mp([self.features_keras, empty_edge_index])
 
                 # Use keras.ops.convert_to_numpy for backend-agnostic conversion
@@ -187,8 +195,10 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                 # With no edges, output should be zeros
                 expected_shape = (self.num_nodes, self.num_features)
                 self.assertEqual(output_np.shape, expected_shape)
+                # pyrefly: ignore  # no-matching-overload
                 np.testing.assert_allclose(
                     output_np,
+                    # pyrefly: ignore  # bad-argument-type
                     np.zeros(expected_shape),
                     rtol=1e-5,
                     atol=1e-5,
@@ -209,6 +219,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
                 mp = DummyMessagePassing(aggregator=aggr)
+                # pyrefly: ignore  # not-callable
                 output = mp([single_node_features, single_node_edge_index])
 
                 # Use keras.ops.convert_to_numpy for backend-agnostic conversion
@@ -228,5 +239,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                     err_msg=f"Single node graph output incorrect for aggregator '{aggr}'",
                 )
 
+
 if __name__ == "__main__":
+    # pyrefly: ignore  # not-callable
     unittest.main()

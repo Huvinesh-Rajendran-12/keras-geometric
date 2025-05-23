@@ -153,7 +153,7 @@ class MessagePassing(layers.Layer):
         updates = self.update(aggregated)
         return updates
 
-    def call(self, inputs: Any) -> Any:
+    def call(self, *args: Any, **kwargs: Any) -> Any:
         """
         Forward pass for the message passing layer.
 
@@ -165,6 +165,13 @@ class MessagePassing(layers.Layer):
         Returns:
             Tensor of shape [N, F] containing the updated node features
         """
+        # Get the inputs from args or kwargs
+        if len(args) > 0:
+            inputs = args[0]
+        else:
+            inputs = kwargs.get("inputs")
+            if inputs is None:
+                raise ValueError("No inputs provided to MessagePassing.call")
         x, edge_idx = inputs
         edge_idx = ops.cast(edge_idx, dtype="int32")
         return self.propagate([x, edge_idx])
