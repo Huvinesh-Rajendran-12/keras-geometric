@@ -28,37 +28,48 @@ classifiers = [ # Find classifiers at https://pypi.org/classifiers/
 ]
 
 # --- Dependencies ---
+# Keep runtime dependencies minimal - only what's needed to use the package
 dependencies = [
-    "jax>=0.4.30",
     "keras>=3.0",
-    "numpy>=2.0.2", # Or "<2.0" if TF < 2.17 compatibility is needed
-    # "scipy>=1.11.0", # Uncomment ONLY if core layers directly use scipy
-    "pre-commit>=4.2.0",
+    "numpy>=1.24.0",  # Compatible with both numpy 1.x and 2.x
 ]
 
 # --- Optional Dependencies ---
 [project.optional-dependencies]
-test = [
-    "pytest>=8.3.5", # Moved from core
-    "torch>=2.6.0",
-    "torch-geometric>=2.6.1", # Moved from core/Added
-    "tensorflow>=2.17",       # Moved from core, version adjusted for numpy 2
-    "jax[cpu]",               # Moved from core/adjusted
+# Dataset dependencies (only needed if using specific datasets)
+datasets = [
+    "scipy>=1.11.0",  # Required for Cora dataset and other scientific datasets
 ]
+
+# Testing dependencies
+test = [
+    "pytest>=8.3.5",
+    "torch>=2.6.0",           # For numerical comparison tests
+    "torch-geometric>=2.6.1", # For numerical comparison tests
+    "tensorflow>=2.17",       # For backend testing
+    "keras-geometric[datasets]", # Include dataset deps for testing
+]
+
+# MacOS Metal support
 macos-metal = [
     "tensorflow-metal>=1.2.0; platform_system=='Darwin' and platform_machine=='arm64'"
 ]
+
+# Development dependencies
 dev = [
-    "keras-geometric[test]", # Includes all test deps
-    "twine",
-    "build",
-    "hatch-vcs",
-    "pre-commit>=4.2.0",     # Moved from core
-    "flake8",                # Optional: Add linters here
-    "mypy",                  # Optional: Add linters here
-    "types-PyYAML",          # Optional: Add mypy helper types here
-    "pip-audit",             # Optional: Add scanners here
-    "safety",                # Optional: Add scanners here
+    "keras-geometric[test]",   # Includes all test deps
+    "pre-commit>=4.2.0",       # Code quality hooks
+    "ruff>=0.8.0",             # Fast Python linter/formatter
+    "mypy>=1.0.0",             # Type checking
+    "twine>=5.0.0",            # Package publishing
+    "build>=1.0.0",            # Package building
+    "hatch>=1.12.0",           # Build backend
+    "pip-audit>=2.7.0",        # Security scanning
+]
+
+# All optional dependencies combined (for convenience)
+all = [
+    "keras-geometric[datasets,test,macos-metal]"
 ]
 
 # --- Project URLs ---
