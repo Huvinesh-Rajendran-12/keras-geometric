@@ -49,8 +49,8 @@ class Dataset:
         self.transform = transform
         self.pre_transform = pre_transform
 
-        self._data_list = None
-        self._num_classes = None
+        self._data_list: Optional[list[GraphData]] = None
+        self._num_classes: Optional[int] = None
 
         self._process()
 
@@ -61,14 +61,18 @@ class Dataset:
 
         # Process or load processed data
         if self._is_processed():
-            self._data_list, self._num_classes = self._load_processed()
+            data_list, num_classes = self._load_processed()
+            self._data_list = data_list
+            self._num_classes = num_classes
         else:
             # Download raw data if needed
             if not self._is_raw_present():
                 self._download()
 
             # Process raw data
-            self._data_list, self._num_classes = self._process_raw()
+            data_list, num_classes = self._process_raw()
+            self._data_list = data_list
+            self._num_classes = num_classes
 
             # Save processed data
             self._save_processed()
@@ -93,7 +97,7 @@ class Dataset:
         """Directory for raw data."""
         return os.path.join(self.root, "raw")
 
-    def _download(self):
+    def _download(self) -> None:
         """Download the dataset. To be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement _download")
 
@@ -139,8 +143,10 @@ class Dataset:
                 save_data[f"y_{i}"] = np.array(graph_data.y)
 
         # Save metadata
-        save_data["num_graphs"] = len(self._data_list)
-        save_data["num_classes"] = self._num_classes
+        if self._data_list is not None:
+            save_data["num_graphs"] = len(self._data_list)
+        if self._num_classes is not None:
+            save_data["num_classes"] = self._num_classes
 
         # Save to file
         np.savez(self._processed_file_path(), **save_data)

@@ -56,7 +56,7 @@ class CoraDataset(Dataset):
     ):
         super().__init__(root, "cora", transform, pre_transform)
 
-    def _download(self):
+    def _download(self) -> None:
         """Download the dataset files."""
         os.makedirs(self._raw_dir(), exist_ok=True)
 

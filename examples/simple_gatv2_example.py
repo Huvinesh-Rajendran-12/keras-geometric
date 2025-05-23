@@ -24,7 +24,9 @@ edge_index = np.array(
 )
 
 # Convert to tensors
+# pyrefly: ignore  # unexpected-keyword
 node_features_tensor = tf.convert_to_tensor(node_features, dtype=tf.float32)
+# pyrefly: ignore  # unexpected-keyword
 edge_index_tensor = tf.convert_to_tensor(edge_index, dtype=tf.int32)
 
 # Create a GATv2 layer

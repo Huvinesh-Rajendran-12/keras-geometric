@@ -38,14 +38,22 @@ class CitationDataset(Dataset):
         ```
     """
 
+    # Dataset URLs and files
+    citeseer_url = (
+        "https://github.com/kimiyoung/planetoid/raw/master/data/ind.citeseer.{}.pkl"
+    )
+    pubmed_url = (
+        "https://github.com/kimiyoung/planetoid/raw/master/data/ind.pubmed.{}.pkl"
+    )
+    dataset_files = ["x", "y", "tx", "ty", "allx", "ally", "graph", "test.index"]
     available_datasets = {
         "citeseer": {
-            "url": "https://github.com/kimiyoung/planetoid/raw/master/data/ind.citeseer.{}.pkl",
-            "files": ["x", "y", "tx", "ty", "allx", "ally", "graph", "test.index"],
+            "url_template": citeseer_url,
+            "files": dataset_files,
         },
         "pubmed": {
-            "url": "https://github.com/kimiyoung/planetoid/raw/master/data/ind.pubmed.{}.pkl",
-            "files": ["x", "y", "tx", "ty", "allx", "ally", "graph", "test.index"],
+            "url_template": pubmed_url,
+            "files": dataset_files,
         },
     }
 
@@ -62,11 +70,15 @@ class CitationDataset(Dataset):
                 f"Dataset {name} not available. Choose from {list(self.available_datasets.keys())}"
             )
 
-        self.dataset_info = self.available_datasets[name.lower()]
+        dataset_info = self.available_datasets[name.lower()]
+        self.dataset_info = {
+            "url_template": str(dataset_info["url_template"]),
+            "files": dataset_info["files"],
+        }
 
         super().__init__(root, name.lower(), transform, pre_transform)
 
-    def _download(self):
+    def _download(self) -> None:
         """Download the dataset files."""
         os.makedirs(self._raw_dir(), exist_ok=True)
 
@@ -74,10 +86,12 @@ class CitationDataset(Dataset):
         for file in self.dataset_info["files"]:
             # Handle test.index specially, as it's not a pickle file
             if file == "test.index":
-                url = self.dataset_info["url"].format(file)
+                template = str(self.dataset_info["url_template"])
+                url = template.replace("{}", file)
                 target_path = os.path.join(self._raw_dir(), f"ind.{self.name}.{file}")
             else:
-                url = self.dataset_info["url"].format(file)
+                template = str(self.dataset_info["url_template"])
+                url = template.replace("{}", file)
                 target_path = os.path.join(
                     self._raw_dir(), f"ind.{self.name}.{file}.pkl"
                 )
