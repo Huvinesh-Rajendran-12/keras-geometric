@@ -1,4 +1,3 @@
-import keras
 import numpy as np
 import tensorflow as tf
 
@@ -10,18 +9,19 @@ input_dim = 3
 output_dim = 4  # Must be divisible by heads
 
 # Node features
-node_features = np.array([
-    [1.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0],
-    [0.0, 0.0, 1.0],
-    [1.0, 1.0, 0.0]
-], dtype=np.float32)
+node_features = np.array(
+    [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 1.0, 0.0]],
+    dtype=np.float32,
+)
 
 # Edge index (COO format)
-edge_index = np.array([
-    [0, 0, 1, 2, 3],  # Source nodes
-    [1, 2, 2, 3, 0]   # Target nodes
-], dtype=np.int32)
+edge_index = np.array(
+    [
+        [0, 0, 1, 2, 3],  # Source nodes
+        [1, 2, 2, 3, 0],  # Target nodes
+    ],
+    dtype=np.int32,
+)
 
 # Convert to tensors
 node_features_tensor = tf.convert_to_tensor(node_features, dtype=tf.float32)
@@ -35,7 +35,7 @@ gatv2_layer = GATv2Conv(
     concat=True,  # Concatenate attention heads
     negative_slope=0.2,
     dropout_rate=0.0,  # No dropout for deterministic results
-    use_bias=True
+    use_bias=True,
 )
 
 # Apply the layer directly

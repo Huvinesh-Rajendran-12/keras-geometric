@@ -8,16 +8,18 @@ import numpy as np
 
 KERAS_BACKEND_IS_TORCH = False
 try:
-    if keras.backend.backend() == 'torch':
+    if keras.backend.backend() == "torch":
         KERAS_BACKEND_IS_TORCH = True
-        print(f"Keras backend confirmed: 'torch'")
+        print("Keras backend confirmed: 'torch'")
     else:
         print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'.")
 except Exception:
-     print("Warning: Could not determine Keras backend.")
+    print("Warning: Could not determine Keras backend.")
 
 # --- Add src directory to path ---
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
+SRC_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"
+)
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
@@ -38,9 +40,11 @@ except Exception as e:
     print(f"An unexpected error occurred during import: {e}")
     MessagePassing = None
 
+
 class DummyMessagePassing(MessagePassing):
     """A simple implementation of MessagePassing for testing."""
-    def __init__(self, aggregator='sum', **kwargs):
+
+    def __init__(self, aggregator="sum", **kwargs):
         super().__init__(aggregator=aggregator, **kwargs)
 
     def message(self, x_i, x_j):
@@ -49,25 +53,34 @@ class DummyMessagePassing(MessagePassing):
     def update(self, aggr_out):
         return aggr_out
 
-@unittest.skipIf(MessagePassing is None, "MessagePassing base class could not be imported.")
-class TestMessagePassingComprehensive(unittest.TestCase):
 
+@unittest.skipIf(
+    MessagePassing is None, "MessagePassing base class could not be imported."
+)
+class TestMessagePassingComprehensive(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.num_nodes = 7
         self.num_features = 4
-        self.aggregation_methods = ['mean', 'max', 'sum']
+        self.aggregation_methods = ["mean", "max", "sum"]
 
         # Create a simple graph for testing
         np.random.seed(42)
-        self.features_np = np.random.randn(self.num_nodes, self.num_features).astype(np.float32)
-        self.edge_index_np = np.array([
-            [0, 1, 1, 2, 3, 4, 4, 5, 0, 3, 6, 5, 1],  # Source nodes
-            [1, 0, 2, 1, 4, 3, 5, 4, 2, 5, 5, 6, 6]   # Target nodes
-        ], dtype=np.int64)
+        self.features_np = np.random.randn(self.num_nodes, self.num_features).astype(
+            np.float32
+        )
+        self.edge_index_np = np.array(
+            [
+                [0, 1, 1, 2, 3, 4, 4, 5, 0, 3, 6, 5, 1],  # Source nodes
+                [1, 0, 2, 1, 4, 3, 5, 4, 2, 5, 5, 6, 6],  # Target nodes
+            ],
+            dtype=np.int64,
+        )
 
         self.features_keras = keras.ops.convert_to_tensor(self.features_np)
-        self.edge_index_keras = keras.ops.convert_to_tensor(self.edge_index_np, dtype='int32')
+        self.edge_index_keras = keras.ops.convert_to_tensor(
+            self.edge_index_np, dtype="int32"
+        )
 
     def test_initialization(self):
         """Test initialization of MessagePassing with different aggregation methods."""
@@ -79,7 +92,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
 
         # Test invalid aggregation
         with self.assertRaises(AssertionError):
-            DummyMessagePassing(aggregator='invalid')
+            DummyMessagePassing(aggregator="invalid")
 
     def test_message_passing_shapes(self):
         """Test the shapes of intermediate tensors in message passing."""
@@ -93,14 +106,19 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                 output_np = keras.ops.convert_to_numpy(output)
 
                 # Output should maintain node count and feature dimensions
-                self.assertEqual(output_np.shape, (self.num_nodes, self.num_features),
-                               f"Shape mismatch for aggregator '{aggr}'")
+                self.assertEqual(
+                    output_np.shape,
+                    (self.num_nodes, self.num_features),
+                    f"Shape mismatch for aggregator '{aggr}'",
+                )
 
     def test_message_passing_values(self):
         """Test the actual values after message passing with different aggregations."""
         print("\n--- Testing MessagePassing Values ---")
 
-        def manual_aggregate(x, edge_index, method):
+        def manual_aggregate(
+            x: np.ndarray, edge_index: np.ndarray, method: str
+        ) -> np.ndarray:
             """Manually compute aggregation for verification."""
             num_nodes = x.shape[0]
             out = np.zeros_like(x)
@@ -112,11 +130,11 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                     continue
                 neighbor_features = x[neighbors]
 
-                if method == 'mean':
+                if method == "mean":
                     out[target_idx] = np.mean(neighbor_features, axis=0)
-                elif method == 'max':
+                elif method == "max":
                     out[target_idx] = np.max(neighbor_features, axis=0)
-                elif method == 'sum':
+                elif method == "sum":
                     out[target_idx] = np.sum(neighbor_features, axis=0)
             return out
 
@@ -130,17 +148,17 @@ class TestMessagePassingComprehensive(unittest.TestCase):
 
                 # Compute expected output manually
                 expected_output = manual_aggregate(
-                    self.features_np,
-                    self.edge_index_np,
-                    aggr
+                    self.features_np, self.edge_index_np, aggr
                 )
 
                 # Compare actual vs expected
                 try:
                     np.testing.assert_allclose(
-                        output_np, expected_output,
-                        rtol=1e-5, atol=1e-5,
-                        err_msg=f"Values mismatch for aggregator '{aggr}'"
+                        output_np,
+                        expected_output,
+                        rtol=1e-5,
+                        atol=1e-5,
+                        err_msg=f"Values mismatch for aggregator '{aggr}'",
                     )
                     print(f"✅ Values match for aggregation '{aggr}'")
                 except AssertionError as e:
@@ -155,8 +173,7 @@ class TestMessagePassingComprehensive(unittest.TestCase):
         """Test behavior with an empty graph (no edges)."""
         print("\n--- Testing Empty Graph Handling ---")
         empty_edge_index = keras.ops.convert_to_tensor(
-            np.zeros((2, 0), dtype=np.int64),
-            dtype='int32'
+            np.zeros((2, 0), dtype=np.int64), dtype="int32"
         )
 
         for aggr in self.aggregation_methods:
@@ -173,8 +190,9 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                 np.testing.assert_allclose(
                     output_np,
                     np.zeros(expected_shape),
-                    rtol=1e-5, atol=1e-5,
-                    err_msg=f"Empty graph output not zero for aggregator '{aggr}'"
+                    rtol=1e-5,
+                    atol=1e-5,
+                    err_msg=f"Empty graph output not zero for aggregator '{aggr}'",
                 )
 
     def test_single_node_graph(self):
@@ -182,9 +200,11 @@ class TestMessagePassingComprehensive(unittest.TestCase):
         print("\n--- Testing Single Node Graph Handling ---")
         # Create a graph with a single node that has a self-loop
         single_node_features = keras.ops.convert_to_tensor(
-            np.random.randn(1, self.num_features).astype(np.float32))
+            np.random.randn(1, self.num_features).astype(np.float32)
+        )
         single_node_edge_index = keras.ops.convert_to_tensor(
-            np.array([[0], [0]]), dtype='int32')  # Self-loop
+            np.array([[0], [0]]), dtype="int32"
+        )  # Self-loop
 
         for aggr in self.aggregation_methods:
             with self.subTest(aggregation=aggr):
@@ -203,9 +223,11 @@ class TestMessagePassingComprehensive(unittest.TestCase):
                 np.testing.assert_allclose(
                     output_np,
                     keras.ops.convert_to_numpy(single_node_features),
-                    rtol=1e-5, atol=1e-5,
-                    err_msg=f"Single node graph output incorrect for aggregator '{aggr}'"
+                    rtol=1e-5,
+                    atol=1e-5,
+                    err_msg=f"Single node graph output incorrect for aggregator '{aggr}'",
                 )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

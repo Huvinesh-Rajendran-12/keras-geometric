@@ -7,29 +7,31 @@ import unittest
 # --- Keras/TensorFlow Imports ---
 import keras
 import numpy as np
+from keras import layers
 
 # Check if the backend is set to 'torch'
 KERAS_BACKEND_IS_TORCH = False
 try:
-    if keras.backend.backend() == 'torch':
+    if keras.backend.backend() == "torch":
         KERAS_BACKEND_IS_TORCH = True
-        print(f"Keras backend confirmed: 'torch'")
+        print("Keras backend confirmed: 'torch'")
     else:
-        print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison tests might fail.")
+        print(
+            f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'. Numerical comparison tests might fail."
+        )
 except Exception:
-     print("Warning: Could not determine Keras backend.")
-
-from keras import layers
+    print("Warning: Could not determine Keras backend.")
 
 # --- Add src directory to path ---
-SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
+SRC_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"
+)
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 # --- Import Custom GINConv Layer ---
 try:
     from keras_geometric.layers.gin_conv import GINConv
-    from keras_geometric.layers.message_passing import MessagePassing
 except ImportError as e:
     print(f"Could not import from package 'keras_geometric': {e}")
     GINConv = None
@@ -44,43 +46,50 @@ try:
     from torch_geometric.nn import GINConv as PyGGINConv
 
     # Force CPU execution for PyTorch side for consistent comparison
-    torch.set_default_device('cpu')
+    torch.set_default_device("cpu")
     print("Setting PyTorch default device to CPU.")
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
+
     # Define placeholder classes if PyTorch/PyG are not available
     class PyGGINConv:
-        def __init__(self, nn, **kwargs): pass
-    class nn:
+        def __init__(self, nn, **kwargs):
+            pass
+
+    class NN:
         Module = object
         Sequential = object
         Linear = object
         ReLU = object
-        Tanh = object # Add Tanh if testing different activations
-    class torch_scatter:
+        Tanh = object  # Add Tanh if testing different activations
+
+    class TorchScatter:
         @staticmethod
-        def scatter(*args, **kwargs): pass
-    print("PyTorch, PyTorch Geometric, or torch-scatter not available. Skipping comparison tests.")
+        def scatter(*args, **kwargs):
+            pass
+
+    print(
+        "PyTorch, PyTorch Geometric, or torch-scatter not available. Skipping comparison tests."
+    )
 
 
 # --- Test Class Definition ---
 @unittest.skipIf(GINConv is None, "Custom GINConv layer could not be imported.")
 class TestGINConvComprehensive(unittest.TestCase):
-
     def setUp(self):
         """Set up test fixtures"""
-        self.num_nodes = 7 # Use a slightly different number of nodes
+        self.num_nodes = 7  # Use a slightly different number of nodes
         self.input_dim = 10
         self.output_dim = 15
         self.mlp_hidden_options = [
-            [],             # Test direct linear transformation
-            [16],           # Test one hidden layer
-            [16, 20]        # Test two hidden layers
+            [],  # Test direct linear transformation
+            [16],  # Test one hidden layer
+            [16, 20],  # Test two hidden layers
         ]
-        self.aggregation_options = ['mean', 'max', 'sum'] # Use 'sum' for Keras side
+        self.aggregation_options = ["mean", "max", "sum"]  # Use 'sum' for Keras side
         self.bias_options = [True, False]
-        self.activation_options = ['relu', 'tanh'] # Test different activations
+        self.activation_options = ["relu", "tanh"]  # Test different activations
 
         # Use fixed seed for reproducibility
         np.random.seed(42)
@@ -88,16 +97,37 @@ class TestGINConvComprehensive(unittest.TestCase):
             torch.manual_seed(42)
 
         # Generate common features and edge index
-        self.features_np = np.random.randn(self.num_nodes, self.input_dim).astype(np.float32)
+        self.features_np = np.random.randn(self.num_nodes, self.input_dim).astype(
+            np.float32
+        )
         # Generate a slightly more complex edge index
-        self.edge_index_np = np.array([
-            [0, 1, 1, 2, 3, 4, 4, 5, 0, 3, 6, 5, 1],  # Source nodes
-            [1, 0, 2, 1, 4, 3, 5, 4, 2, 5, 5, 6, 6]   # Target nodes (ensure indices up to N-1 exist)
-        ], dtype=np.int64)
+        self.edge_index_np = np.array(
+            [
+                [0, 1, 1, 2, 3, 4, 4, 5, 0, 3, 6, 5, 1],  # Source nodes
+                [
+                    1,
+                    0,
+                    2,
+                    1,
+                    4,
+                    3,
+                    5,
+                    4,
+                    2,
+                    5,
+                    5,
+                    6,
+                    6,
+                ],  # Target nodes (ensure indices up to N-1 exist)
+            ],
+            dtype=np.int64,
+        )
 
         # Ensure Keras tensors respect torch default device if backend is torch
         self.features_keras = keras.ops.convert_to_tensor(self.features_np)
-        self.edge_index_keras = keras.ops.convert_to_tensor(self.edge_index_np, dtype='int32')
+        self.edge_index_keras = keras.ops.convert_to_tensor(
+            self.edge_index_np, dtype="int32"
+        )
 
         if TORCH_AVAILABLE:
             # These will be on CPU due to torch.set_default_device
@@ -108,26 +138,45 @@ class TestGINConvComprehensive(unittest.TestCase):
         """Test layer initialization with various valid parameters."""
         print("\n--- Testing Initialization Variations ---")
         for mlp_hidden, aggregator, use_bias, activation in itertools.product(
-            self.mlp_hidden_options, self.aggregation_options, self.bias_options, self.activation_options
+            self.mlp_hidden_options,
+            self.aggregation_options,
+            self.bias_options,
+            self.activation_options,
         ):
             if GINConv is not None:
-                with self.subTest(mlp_hidden=mlp_hidden, aggregator=aggregator, use_bias=use_bias, activation=activation):
+                with self.subTest(
+                    mlp_hidden=mlp_hidden,
+                    aggregator=aggregator,
+                    use_bias=use_bias,
+                    activation=activation,
+                ):
                     gin = GINConv(
                         output_dim=self.output_dim,
                         mlp_hidden=mlp_hidden,
                         aggregator=aggregator,
                         use_bias=use_bias,
-                        activation=activation
+                        activation=activation,
                     )
                     self.assertEqual(gin.output_dim, self.output_dim)
                     self.assertEqual(gin.mlp_hidden, mlp_hidden)
-                    self.assertEqual(gin.aggregator, aggregator) # Assumes GINConv.__init__ passes aggregator to super()
+                    self.assertEqual(
+                        gin.aggregator, aggregator
+                    )  # Assumes GINConv.__init__ passes aggregator to super()
                     self.assertEqual(gin.use_bias, use_bias)
-                    self.assertEqual(gin.activation, activation) # Check stored identifier
+                    self.assertEqual(
+                        gin.activation, activation
+                    )  # Check stored identifier
 
                 # Test invalid aggregation
-                with self.assertRaises(AssertionError, msg="AssertionError not raised for invalid aggregation"):
-                    GINConv(output_dim=self.output_dim, mlp_hidden=[16], aggregator='invalid_aggr')
+                with self.assertRaises(
+                    AssertionError,
+                    msg="AssertionError not raised for invalid aggregation",
+                ):
+                    GINConv(
+                        output_dim=self.output_dim,
+                        mlp_hidden=[16],
+                        aggregator="invalid_aggr",
+                    )
 
     def test_call_shapes_variations(self):
         """Test the forward pass shape for different configurations."""
@@ -136,20 +185,32 @@ class TestGINConvComprehensive(unittest.TestCase):
         expected_shape = (self.num_nodes, self.output_dim)
 
         for mlp_hidden, aggr, use_bias, activation in itertools.product(
-             self.mlp_hidden_options, self.aggregation_options, self.bias_options, self.activation_options
+            self.mlp_hidden_options,
+            self.aggregation_options,
+            self.bias_options,
+            self.activation_options,
         ):
-             with self.subTest(mlp_hidden=mlp_hidden, aggr=aggr, use_bias=use_bias, activation=activation):
+            with self.subTest(
+                mlp_hidden=mlp_hidden,
+                aggr=aggr,
+                use_bias=use_bias,
+                activation=activation,
+            ):
                 gin = GINConv(
                     output_dim=self.output_dim,
                     mlp_hidden=mlp_hidden,
                     aggregator=aggr,
                     use_bias=use_bias,
-                    activation=activation
+                    activation=activation,
                 )
                 output = gin(input_data)
                 # Use keras.ops.convert_to_numpy for backend-agnostic conversion
                 output_np = keras.ops.convert_to_numpy(output)
-                self.assertEqual(output_np.shape, expected_shape, f"Shape mismatch for config: {mlp_hidden}, {aggr}, {use_bias}, {activation}")
+                self.assertEqual(
+                    output_np.shape,
+                    expected_shape,
+                    f"Shape mismatch for config: {mlp_hidden}, {aggr}, {use_bias}, {activation}",
+                )
 
     def test_config_serialization(self):
         """Test layer get_config and from_config methods."""
@@ -157,14 +218,14 @@ class TestGINConvComprehensive(unittest.TestCase):
         # Test with non-default values
         if GINConv is not None:
             gin1 = GINConv(
-                output_dim=self.output_dim + 1, # Different output dim
+                output_dim=self.output_dim + 1,  # Different output dim
                 mlp_hidden=[32, 64],
-                aggregator='max',
+                aggregator="max",
                 use_bias=False,
-                activation='tanh',
-                kernel_initializer='he_normal',
-                bias_initializer='ones',
-                name="test_gin_config"
+                activation="tanh",
+                kernel_initializer="he_normal",
+                bias_initializer="ones",
+                name="test_gin_config",
             )
             # Build layer to ensure all weights/attributes are created if needed by get_config
             _ = gin1([self.features_keras, self.edge_index_keras])
@@ -173,21 +234,30 @@ class TestGINConvComprehensive(unittest.TestCase):
             pprint.pprint(config)
 
             # Check all expected keys are present
-            expected_keys = ['name', 'trainable', 'dtype', 'output_dim', 'mlp_hidden',
-                            'aggregator', 'use_bias', 'kernel_initializer', 'bias_initializer',
-                            'activation']
+            expected_keys = [
+                "name",
+                "trainable",
+                "dtype",
+                "output_dim",
+                "mlp_hidden",
+                "aggregator",
+                "use_bias",
+                "kernel_initializer",
+                "bias_initializer",
+                "activation",
+            ]
             for key in expected_keys:
                 self.assertIn(key, config, f"Key '{key}' missing from config")
 
             # Check some values (assuming GINConv stores identifiers correctly now)
-            self.assertEqual(config['output_dim'], self.output_dim + 1)
-            self.assertEqual(config['mlp_hidden'], [32, 64])
-            self.assertEqual(config['aggregator'], 'max')
-            self.assertFalse(config['use_bias'])
-            self.assertEqual(config['activation'], 'tanh')
-            self.assertEqual(config['kernel_initializer'], 'he_normal')
-            self.assertEqual(config['bias_initializer'], 'ones')
-            self.assertEqual(config['name'], "test_gin_config")
+            self.assertEqual(config["output_dim"], self.output_dim + 1)
+            self.assertEqual(config["mlp_hidden"], [32, 64])
+            self.assertEqual(config["aggregator"], "max")
+            self.assertFalse(config["use_bias"])
+            self.assertEqual(config["activation"], "tanh")
+            self.assertEqual(config["kernel_initializer"], "he_normal")
+            self.assertEqual(config["bias_initializer"], "ones")
+            self.assertEqual(config["name"], "test_gin_config")
 
             # Test reconstruction
             try:
@@ -206,19 +276,35 @@ class TestGINConvComprehensive(unittest.TestCase):
             self.assertEqual(gin1.bias_initializer, gin2.bias_initializer)
             self.assertEqual(gin1.name, gin2.name)
 
-
-    @unittest.skipIf(not TORCH_AVAILABLE, "PyTorch or PyTorch Geometric or torch-scatter not available")
-    @unittest.skipIf(not KERAS_BACKEND_IS_TORCH, "Skipping numerical comparison because Keras backend is not torch")
+    @unittest.skipIf(
+        not TORCH_AVAILABLE,
+        "PyTorch or PyTorch Geometric or torch-scatter not available",
+    )
+    @unittest.skipIf(
+        not KERAS_BACKEND_IS_TORCH,
+        "Skipping numerical comparison because Keras backend is not torch",
+    )
     def test_numerical_comparison_with_pyg(self):
         """Compare final numerical output with PyTorch Geometric's GINConv."""
         print("\n--- Testing Numerical Comparison vs PyG ---")
 
         # Combine options to test various configurations
-        test_params = list(itertools.product(
-            self.mlp_hidden_options, self.aggregation_options, self.bias_options, self.activation_options[:1] # Limit activations for brevity, focus on relu
-        ))
+        test_params = list(
+            itertools.product(
+                self.mlp_hidden_options,
+                self.aggregation_options,
+                self.bias_options,
+                self.activation_options[
+                    :1
+                ],  # Limit activations for brevity, focus on relu
+            )
+        )
 
-        aggregation_map = {'mean': 'mean', 'max': 'max', 'sum': 'sum'} # Keras_aggr -> PyG_reduce
+        aggregation_map = {
+            "mean": "mean",
+            "max": "max",
+            "sum": "sum",
+        }  # Keras_aggr -> PyG_reduce
 
         for mlp_hidden, keras_aggr, use_bias, activation in test_params:
             pyg_reduce = aggregation_map[keras_aggr]
@@ -226,103 +312,169 @@ class TestGINConvComprehensive(unittest.TestCase):
             with self.subTest(msg=subtest_msg):
                 print(f"\n--- Comparing: {subtest_msg} ---")
 
-                 # --- Define PyG MLP structure (matching Keras) ---
+                # --- Define PyG MLP structure (matching Keras) ---
                 pyg_mlp_layers = []
                 # Select PyG activation based on Keras identifier
-                if activation == 'relu': pyg_activation_fn = nn.ReLU()
-                elif activation == 'tanh': pyg_activation_fn = nn.Tanh()
-                else: pyg_activation_fn = nn.Identity() # Or handle error
+                if activation == "relu":
+                    pyg_activation_fn = nn.ReLU()
+                elif activation == "tanh":
+                    pyg_activation_fn = nn.Tanh()
+                else:
+                    pyg_activation_fn = nn.Identity()  # Or handle error
 
                 current_dim = self.input_dim
-                for i, hidden_units in enumerate(mlp_hidden):
-                    pyg_mlp_layers.append(nn.Linear(current_dim, hidden_units, bias=use_bias))
-                    pyg_mlp_layers.append(pyg_activation_fn) # Apply activation after hidden layers
+                for _i, hidden_units in enumerate(mlp_hidden):
+                    pyg_mlp_layers.append(
+                        nn.Linear(current_dim, hidden_units, bias=use_bias)
+                    )
+                    pyg_mlp_layers.append(
+                        pyg_activation_fn
+                    )  # Apply activation after hidden layers
                     current_dim = hidden_units
                 # Final layer - NO activation
-                pyg_mlp_layers.append(nn.Linear(current_dim, self.output_dim, bias=use_bias))
-                pyg_mlp = nn.Sequential(*pyg_mlp_layers) # On CPU by default
+                pyg_mlp_layers.append(
+                    nn.Linear(current_dim, self.output_dim, bias=use_bias)
+                )
+                pyg_mlp = nn.Sequential(*pyg_mlp_layers)  # On CPU by default
 
                 # --- Instantiate Keras Layer ---
                 # Assuming user fixed GINConv: aggr passed to super, no activation on final MLP layer
                 if GINConv is not None:
                     keras_gin = GINConv(
-                        output_dim=self.output_dim, mlp_hidden=mlp_hidden,
-                        aggregator=keras_aggr, use_bias=use_bias, activation=activation
+                        output_dim=self.output_dim,
+                        mlp_hidden=mlp_hidden,
+                        aggregator=keras_aggr,
+                        use_bias=use_bias,
+                        activation=activation,
                     )
                     # Build layer
                     _ = keras_gin([self.features_keras, self.edge_index_keras])
 
                     # --- Instantiate PyG Layer ---
-                    pyg_gin = PyGGINConv(nn=pyg_mlp, aggr=pyg_reduce, train_eps=False) # On CPU
+                    pyg_gin = PyGGINConv(
+                        nn=pyg_mlp, aggr=pyg_reduce, train_eps=False
+                    )  # On CPU
 
                     # --- Sync Weights ---
-                    keras_dense_layers = [layer for layer in keras_gin.mlp.layers if isinstance(layer, layers.Dense)]
-                    pyg_linear_layers = [m for m in pyg_gin.nn if isinstance(m, nn.Linear)]
+                    keras_dense_layers = [
+                        layer
+                        for layer in keras_gin.mlp.layers
+                        if isinstance(layer, layers.Dense)
+                    ]
+                    pyg_linear_layers = [
+                        m for m in pyg_gin.nn if isinstance(m, nn.Linear)
+                    ]
                     if len(keras_dense_layers) != len(pyg_linear_layers):
-                        self.fail(f"MLP layer count mismatch Keras({len(keras_dense_layers)}) vs PyG({len(pyg_linear_layers)}) for {subtest_msg}")
+                        self.fail(
+                            f"MLP layer count mismatch Keras({len(keras_dense_layers)}) vs PyG({len(pyg_linear_layers)}) for {subtest_msg}"
+                        )
 
-                    print(f"Syncing weights for {len(keras_dense_layers)} MLP layer(s)...")
+                    print(
+                        f"Syncing weights for {len(keras_dense_layers)} MLP layer(s)..."
+                    )
                     for i in range(len(keras_dense_layers)):
                         k_layer, p_layer = keras_dense_layers[i], pyg_linear_layers[i]
                         k_weights = k_layer.get_weights()
-                        p_layer.to('cpu') # Ensure layer is on CPU before copy
+                        p_layer.to("cpu")  # Ensure layer is on CPU before copy
 
                         if use_bias:
-                            if len(k_weights) != 2: self.fail(f"Expected 2 weights (kernel, bias) but got {len(k_weights)} for layer {i} with use_bias=True")
+                            if len(k_weights) != 2:
+                                self.fail(
+                                    f"Expected 2 weights (kernel, bias) but got {len(k_weights)} for layer {i} with use_bias=True"
+                                )
                             k_kernel, k_bias = k_weights[0], k_weights[1]
                             p_layer.weight.data.copy_(torch.tensor(k_kernel.T))
                             p_layer.bias.data.copy_(torch.tensor(k_bias))
                             # Verification
                             synced_kernel_t = p_layer.weight.data.cpu().numpy().T
                             synced_bias = p_layer.bias.data.cpu().numpy()
-                            np.testing.assert_allclose(k_kernel, synced_kernel_t, rtol=0, atol=0, err_msg=f"Kernel sync failed layer {i}")
-                            np.testing.assert_allclose(k_bias, synced_bias, rtol=0, atol=0, err_msg=f"Bias sync failed layer {i}")
-                        else: # No bias
-                            if len(k_weights) != 1: self.fail(f"Expected 1 weight (kernel) but got {len(k_weights)} for layer {i} with use_bias=False")
+                            np.testing.assert_allclose(
+                                k_kernel,
+                                synced_kernel_t,
+                                rtol=0,
+                                atol=0,
+                                err_msg=f"Kernel sync failed layer {i}",
+                            )
+                            np.testing.assert_allclose(
+                                k_bias,
+                                synced_bias,
+                                rtol=0,
+                                atol=0,
+                                err_msg=f"Bias sync failed layer {i}",
+                            )
+                        else:  # No bias
+                            if len(k_weights) != 1:
+                                self.fail(
+                                    f"Expected 1 weight (kernel) but got {len(k_weights)} for layer {i} with use_bias=False"
+                                )
                             k_kernel = k_weights[0]
                             # Check if PyG layer correctly has no bias
-                            self.assertIsNone(p_layer.bias, f"PyG layer {i} has bias when use_bias=False")
+                            self.assertIsNone(
+                                p_layer.bias,
+                                f"PyG layer {i} has bias when use_bias=False",
+                            )
                             p_layer.weight.data.copy_(torch.tensor(k_kernel.T))
                             # Verification
                             synced_kernel_t = p_layer.weight.data.cpu().numpy().T
-                            np.testing.assert_allclose(k_kernel, synced_kernel_t, rtol=0, atol=0, err_msg=f"Kernel sync failed layer {i} (no bias)")
+                            np.testing.assert_allclose(
+                                k_kernel,
+                                synced_kernel_t,
+                                rtol=0,
+                                atol=0,
+                                err_msg=f"Kernel sync failed layer {i} (no bias)",
+                            )
 
                     print("Weights synced and verified.")
 
                     # --- Perform Forward Pass ---
                     # Keras GIN (uses torch backend on CPU)
-                    keras_output = keras_gin([self.features_keras, self.edge_index_keras])
+                    keras_output = keras_gin(
+                        [self.features_keras, self.edge_index_keras]
+                    )
                     # PyG GIN (on CPU)
                     pyg_output = pyg_gin(self.features_torch, self.edge_index_torch)
 
                     # --- Compare Final Outputs ---
                     # Use keras.ops.convert_to_numpy for backend-agnostic conversion
                     keras_output_np = keras.ops.convert_to_numpy(keras_output)
-                    pyg_output_np = pyg_output.cpu().detach().numpy() # PyG output is already torch tensor
+                    pyg_output_np = (
+                        pyg_output.cpu().detach().numpy()
+                    )  # PyG output is already torch tensor
 
                     print(f"Keras final output shape: {keras_output_np.shape}")
                     print(f"PyG final output shape: {pyg_output_np.shape}")
-                    self.assertEqual(keras_output_np.shape, (self.num_nodes, self.output_dim))
-                    self.assertEqual(pyg_output_np.shape, (self.num_nodes, self.output_dim))
+                    self.assertEqual(
+                        keras_output_np.shape, (self.num_nodes, self.output_dim)
+                    )
+                    self.assertEqual(
+                        pyg_output_np.shape, (self.num_nodes, self.output_dim)
+                    )
 
                     try:
                         np.testing.assert_allclose(
-                            keras_output_np, pyg_output_np, rtol=1e-5, atol=1e-5, # Standard tolerance
-                            err_msg=f"FINAL outputs differ for {subtest_msg}"
+                            keras_output_np,
+                            pyg_output_np,
+                            rtol=1e-5,
+                            atol=1e-5,  # Standard tolerance
+                            err_msg=f"FINAL outputs differ for {subtest_msg}",
                         )
                         print(f"✅ FINAL outputs match for: {subtest_msg}")
-                    except AssertionError as e:
+                    except AssertionError:
                         print(f"❌ FINAL outputs DO NOT match for: {subtest_msg}")
 
                         # Provide more context on failure
                         abs_diff = np.abs(keras_output_np - pyg_output_np)
-                        rel_diff = abs_diff / (np.abs(pyg_output_np) + 1e-8) # Avoid division by zero
-                        print(f"   Max Abs Diff: {np.max(abs_diff):.4g}, Max Rel Diff: {np.max(rel_diff):.4g}")
+                        rel_diff = abs_diff / (
+                            np.abs(pyg_output_np) + 1e-8
+                        )  # Avoid division by zero
+                        print(
+                            f"   Max Abs Diff: {np.max(abs_diff):.4g}, Max Rel Diff: {np.max(rel_diff):.4g}"
+                        )
                         print("   Keras sample:", keras_output_np[0, :5])
                         print("   PyG sample:", pyg_output_np[0, :5])
                         # Optionally fail the test immediately on first mismatch
                         # self.fail(f"Final output mismatch for {subtest_msg}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
