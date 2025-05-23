@@ -1,0 +1,12 @@
+# Include all Python files in the src and tests directories
+project_includes = ["src/**/*.py", "tests/**/*.py", "examples/**/*.py"]
+
+# Standard Python library to ignore for type checking
+replace_imports_with_any = ["tests.*", "tensorflow.*", "torch.*", "torch_geometric.*", "numpy.*"]
+
+# Python version to use for type checking
+python_version = "3.9"
+
+# Disable specific error kinds
+[errors]
+bad-argument-type = false
