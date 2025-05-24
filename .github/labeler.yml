@@ -1,0 +1,67 @@
+# Configuration for automatic labeling of pull requests
+# This file defines patterns to automatically label PRs based on changed files
+
+# Core library changes
+"core":
+  - "src/keras_geometric/layers/**/*"
+  - "src/keras_geometric/message_passing.py"
+
+# Dataset related changes
+"datasets":
+  - "src/keras_geometric/datasets/**/*"
+
+# Testing changes
+"tests":
+  - "tests/**/*"
+
+# Documentation changes
+"documentation":
+  - "README.md"
+  - "docs/**/*"
+  - "**/*.md"
+
+# Configuration and build changes
+"build":
+  - "pyproject.toml"
+  - "setup.py"
+  - "setup.cfg"
+  - "requirements*.txt"
+  - "uv.lock"
+
+# CI/CD changes
+"ci/cd":
+  - ".github/**/*"
+  - "scripts/**/*"
+
+# Dependencies
+"dependencies":
+  - "pyproject.toml"
+  - "requirements*.txt"
+  - "uv.lock"
+
+# Type checking and linting
+"quality":
+  - ".ruff.toml"
+  - "pyrefly.toml"
+  - ".pre-commit-config.yaml"
+
+# Examples and tutorials
+"examples":
+  - "examples/**/*"
+  - "tutorials/**/*"
+
+# Performance related
+"performance":
+  - any: ["**/benchmark*", "**/perf*", "**/optimization*"]
+
+# Bug fixes (based on branch names or PR titles)
+"bug":
+  - head-branch: ["^fix/", "^bugfix/", "^hotfix/"]
+
+# New features
+"enhancement":
+  - head-branch: ["^feature/", "^feat/", "^add/"]
+
+# Breaking changes
+"breaking":
+  - head-branch: ["^breaking/", "^major/"]

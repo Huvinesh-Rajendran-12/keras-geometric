@@ -63,6 +63,7 @@ dev = [
     "build>=1.0.0",          # Package building
     "hatch>=1.12.0",         # Build backend
     "pip-audit>=2.7.0",      # Security scanning
+    "safety>=3.0.0",         # Additional security scanning
 ]
 
 # All optional dependencies combined (for convenience)

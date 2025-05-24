@@ -49,6 +49,6 @@ git push origin "v$VERSION"
 # The actual PyPI deployment will be triggered by the CI/CD pipeline
 # when it sees the new tag
 
-echo "Release v$VERSION created and pushed to GitLab!"
+echo "Release v$VERSION created and pushed to GitHub!"
 echo "The CI/CD pipeline will automatically build and deploy to PyPI."
-echo "You can check the status at: https://gitlab.com/<your-username>/keras-geometric/-/pipelines"
+echo "You can check the status at: https://github.com/Huvinesh-Rajendran-12/keras-geometric/actions"
