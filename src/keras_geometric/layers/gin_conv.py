@@ -187,7 +187,7 @@ class GINConv(MessagePassing):
 
         # Aggregate neighbor features
         if num_edges > 0:
-            aggr_out = self.propagate([x, edge_index])
+            aggr_out = self.propagate(x=x, edge_index=edge_index)
         else:
             # No edges - aggregation returns zeros
             aggr_out = ops.zeros_like(x)

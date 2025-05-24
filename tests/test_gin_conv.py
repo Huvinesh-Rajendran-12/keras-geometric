@@ -196,7 +196,7 @@ class TestGINConvInitialization(TestGINConvBase):
         """Test that invalid aggregator raises error."""
         print("\n--- Testing GINConv Invalid Aggregator ---")
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(ValueError):
             # pyrefly: ignore # implicitly-determined-attribute
             GINConv(output_dim=self.output_dim, aggregator="invalid_aggr")
 
