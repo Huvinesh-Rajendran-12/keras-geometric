@@ -143,7 +143,14 @@ class MessagePassing(layers.Layer):
             f = ops.shape(x)[1]  # Number of features
             return ops.zeros((n, f), dtype=x.dtype)
 
-        # If there are no edges, we'll handle this in aggregate method
+        # Check if there are any edges
+        e = ops.shape(edge_idx)[1]  # Number of edges
+        if e == 0:
+            # No edges case - return zeros for all nodes
+            f = ops.shape(x)[1]  # Number of features
+            return ops.zeros((n, f), dtype=x.dtype)
+
+        # If there are edges, perform normal message passing
         source_node_idx = edge_idx[0]
         target_node_idx = edge_idx[1]
         x_j = ops.take(x, source_node_idx, axis=0)
@@ -153,7 +160,9 @@ class MessagePassing(layers.Layer):
         updates = self.update(aggregated)
         return updates
 
-    def call(self, inputs: Any, training: bool | None = None) -> Any:  # Pyre ignore
+    def call(
+        self, inputs: Any, training: bool | None = None
+    ) -> Any:  # pyrefly: ignore  # bad-override
         """
         Forward pass for the message passing layer.
 
