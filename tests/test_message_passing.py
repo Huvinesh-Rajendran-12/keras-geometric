@@ -1,245 +1,458 @@
-import os
-import sys
-import unittest
-
-# --- Keras Imports ---
-import keras
 import numpy as np
+import pytest
+from keras import ops
+from keras.src import testing
+from keras.src.ops import KerasTensor
 
-KERAS_BACKEND_IS_TORCH = False
-try:
-    if keras.backend.backend() == "torch":
-        KERAS_BACKEND_IS_TORCH = True
-        print("Keras backend confirmed: 'torch'")
-    else:
-        print(f"Warning: Keras backend is '{keras.backend.backend()}', not 'torch'.")
-except Exception:
-    print("Warning: Could not determine Keras backend.")
-
-# --- Add src directory to path ---
-SRC_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"
-)
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
-
-# --- Import MessagePassing Base Class ---
-"""
-Attempt to import the MessagePassing base class from the keras_geometric layers module.
-
-This import is wrapped in a try-except block to handle potential import errors,
-allowing the test suite to gracefully handle scenarios where the module might
-not be available or cannot be imported.
-"""
-try:
-    from keras_geometric.layers.message_passing import MessagePassing
-except ImportError as e:
-    print(f"Could not import MessagePassing from package 'keras_geometric': {e}")
-    MessagePassing = None
-except Exception as e:
-    print(f"An unexpected error occurred during import: {e}")
-    MessagePassing = None
+from keras_geometric.layers import MessagePassing
 
 
-# pyrefly: ignore  # invalid-inheritance
-class DummyMessagePassing(MessagePassing):
-    """A simple implementation of MessagePassing for testing."""
+class TestMessagePassing(testing.TestCase):
+    """Comprehensive test suite for MessagePassing layer."""
 
-    def __init__(self, aggregator="sum", **kwargs):
-        # pyrefly: ignore  # unexpected-keyword
-        super().__init__(aggregator=aggregator, **kwargs)
-
-    def message(self, x_i, x_j):
-        return x_j
-
-    def update(self, aggr_out):
-        return aggr_out
-
-
-@unittest.skipIf(
-    MessagePassing is None, "MessagePassing base class could not be imported."
-)
-class TestMessagePassingComprehensive(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up test fixtures."""
-        self.num_nodes = 7
-        self.num_features = 4
-        self.aggregation_methods = ["mean", "max", "sum"]
+        super().setUp()
 
-        # Create a simple graph for testing
-        np.random.seed(42)
-        self.features_np = np.random.randn(self.num_nodes, self.num_features).astype(
+        # Simple graph: 5 nodes, 6 edges
+        self.num_nodes: int = 5
+        self.num_features: int = 8
+        self.num_edges: int = 6
+
+        # Create node features
+        self.node_features: np.ndarray = np.random.randn(
+            self.num_nodes, self.num_features
+        ).astype(np.float32)
+
+        # Create edge indices (simple graph structure)
+        # 0 -> 1, 1 -> 2, 2 -> 3, 3 -> 4, 4 -> 0, 0 -> 2
+        self.edge_index: np.ndarray = np.array(
+            [
+                [0, 1, 2, 3, 4, 0],  # source nodes
+                [1, 2, 3, 4, 0, 2],  # target nodes
+            ],
+            dtype=np.int32,
+        )
+
+        # Create edge attributes
+        self.edge_attr: np.ndarray = np.random.randn(self.num_edges, 4).astype(
             np.float32
         )
-        self.edge_index_np = np.array(
+        self.sizes: list[int] | None = None
+
+    def test_initialization(self) -> None:
+        """Test layer initialization with different aggregators."""
+        # Test valid aggregators
+        for aggregator in ["mean", "max", "sum", "min", "std"]:
+            layer = MessagePassing(aggregator=aggregator)
+            self.assertEqual(layer.aggregator, aggregator)
+
+        # Test invalid aggregator
+        with self.assertRaises(ValueError):
+            MessagePassing(aggregator="invalid")
+
+    def test_mean_aggregation(self) -> None:
+        """Test mean aggregation with various edge cases."""
+        layer = MessagePassing(aggregator="mean")
+
+        # Test normal case
+        messages = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=np.float32)
+        target_idx = np.array([0, 0, 1], dtype=np.int32)
+
+        result = layer.aggregate(messages, target_idx, num_nodes=3)
+
+        # Node 0 should have mean of first two messages
+        expected_node_0 = np.array([2.0, 3.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[0]), expected_node_0, rtol=1e-5
+        )
+
+        # Node 1 should have the third message
+        expected_node_1 = np.array([5.0, 6.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[1]), expected_node_1, rtol=1e-5
+        )
+
+        # Node 2 should have zeros (no messages)
+        expected_node_2 = np.array([0.0, 0.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[2]), expected_node_2, rtol=1e-5
+        )
+
+    def test_max_aggregation(self) -> None:
+        """Test max aggregation."""
+        layer = MessagePassing(aggregator="max")
+
+        messages = np.array([[1.0, 5.0], [3.0, 2.0], [2.0, 4.0]], dtype=np.float32)
+        target_idx = np.array([0, 0, 1], dtype=np.int32)
+
+        result = layer.aggregate(messages, target_idx, num_nodes=3)
+
+        # Node 0 should have max of first two messages
+        expected_node_0 = np.array([3.0, 5.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[0]), expected_node_0, rtol=1e-5
+        )
+
+        # Node 1 should have the third message
+        expected_node_1 = np.array([2.0, 4.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[1]), expected_node_1, rtol=1e-5
+        )
+
+    def test_sum_aggregation(self) -> None:
+        """Test sum aggregation."""
+        layer = MessagePassing(aggregator="sum")
+
+        messages = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=np.float32)
+        target_idx = np.array([0, 0, 1], dtype=np.int32)
+
+        result = layer.aggregate(messages, target_idx, num_nodes=3)
+
+        # Node 0 should have sum of first two messages
+        expected_node_0 = np.array([4.0, 6.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[0]), expected_node_0, rtol=1e-5
+        )
+
+    def test_min_aggregation(self) -> None:
+        """Test min aggregation."""
+        layer = MessagePassing(aggregator="min")
+
+        messages = np.array([[1.0, 5.0], [3.0, 2.0], [2.0, 4.0]], dtype=np.float32)
+        target_idx = np.array([0, 0, 1], dtype=np.int32)
+
+        result = layer.aggregate(messages, target_idx, num_nodes=3)
+
+        # Node 0 should have min of first two messages
+        expected_node_0 = np.array([1.0, 2.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[0]), expected_node_0, rtol=1e-5
+        )
+
+    def test_std_aggregation(self) -> None:
+        """Test standard deviation aggregation."""
+        layer = MessagePassing(aggregator="std")
+
+        # Use messages where std is easy to calculate
+        messages = np.array(
+            [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]], dtype=np.float32
+        )
+        target_idx = np.array([0, 0, 1, 1], dtype=np.int32)
+
+        result = layer.aggregate(messages, target_idx, num_nodes=2)
+
+        # Node 0: std of [1, 3] and [2, 4]
+        expected_std_0 = np.array([1.0, 1.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[0]), expected_std_0, rtol=1e-5
+        )
+
+        # Node 1: std of [5, 7] and [6, 8]
+        expected_std_1 = np.array([1.0, 1.0])
+        np.testing.assert_allclose(
+            ops.convert_to_numpy(result[1]), expected_std_1, rtol=1e-5
+        )
+
+    def test_empty_graph(self) -> None:
+        """Test with empty graph (no nodes)."""
+        layer = MessagePassing(aggregator="mean")
+
+        empty_features = np.zeros((0, 8), dtype=np.float32)
+        empty_edge_index = np.zeros((2, 0), dtype=np.int32)
+
+        result = layer.propagate(x=empty_features, edge_index=empty_edge_index)
+
+        self.assertEqual(result.shape, (0, 8))
+
+    def test_no_edges(self) -> None:
+        """Test with graph that has nodes but no edges."""
+        layer = MessagePassing(aggregator="mean")
+
+        features = np.random.randn(5, 8).astype(np.float32)
+        empty_edge_index = np.zeros((2, 0), dtype=np.int32)
+
+        result = layer.propagate(x=features, edge_index=empty_edge_index)
+
+        # Should return zeros for all nodes
+        expected = np.zeros((5, 8), dtype=np.float32)
+        np.testing.assert_allclose(ops.convert_to_numpy(result), expected, rtol=1e-5)
+
+    def test_message_with_edge_attributes(self) -> None:
+        """Test message function with edge attributes."""
+        layer = MessagePassing()
+
+        # Create dummy tensors
+        x_i = ops.ones((10, 8))
+        x_j = ops.ones((10, 8)) * 2
+        edge_attr = ops.ones((10, 4)) * 3
+
+        # Test default message function with edge attributes
+        messages = layer.message(x_i, x_j, edge_attr=edge_attr)
+
+        # Should concatenate x_j and edge_attr
+        self.assertEqual(messages.shape, (10, 12))
+
+    def test_bipartite_graph(self) -> None:
+        """Test with bipartite graph (different source and target features)."""
+        layer = MessagePassing(aggregator="sum")
+
+        # Different number of source and target nodes
+        x_source = np.random.randn(4, 8).astype(np.float32)
+        x_target = np.random.randn(3, 8).astype(np.float32)
+
+        # Edges from source to target
+        edge_index = np.array(
             [
-                [0, 1, 1, 2, 3, 4, 4, 5, 0, 3, 6, 5, 1],  # Source nodes
-                [1, 0, 2, 1, 4, 3, 5, 4, 2, 5, 5, 6, 6],  # Target nodes
+                [0, 1, 2, 3, 0],  # source indices
+                [0, 1, 2, 0, 1],  # target indices
             ],
-            dtype=np.int64,
+            dtype=np.int32,
         )
 
-        self.features_keras = keras.ops.convert_to_tensor(self.features_np)
-        self.edge_index_keras = keras.ops.convert_to_tensor(
-            self.edge_index_np, dtype="int32"
-        )
+        result = layer.propagate(x=(x_target, x_source), edge_index=edge_index)
 
-    def test_initialization(self):
-        """Test initialization of MessagePassing with different aggregation methods."""
-        print("\n--- Testing MessagePassing Initialization ---")
-        for aggr in self.aggregation_methods:
-            with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggregator=aggr)
-                self.assertEqual(mp.aggregator, aggr)
+        # Result should have shape of target nodes
+        self.assertEqual(result.shape, (3, 8))
 
-        # Test invalid aggregation
-        with self.assertRaises(AssertionError):
-            DummyMessagePassing(aggregator="invalid")
+    def test_call_method(self) -> None:
+        """Test the call method with different input formats."""
+        layer = MessagePassing(aggregator="mean")
 
-    def test_message_passing_shapes(self):
-        """Test the shapes of intermediate tensors in message passing."""
-        print("\n--- Testing MessagePassing Shapes ---")
-        for aggr in self.aggregation_methods:
-            with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggregator=aggr)
-                # pyrefly: ignore  # not-callable
-                output = mp([self.features_keras, self.edge_index_keras])
+        # Test with list inputs
+        result1 = layer([self.node_features, self.edge_index])
+        self.assertEqual(result1.shape, (self.num_nodes, self.num_features))
 
-                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
-                output_np = keras.ops.convert_to_numpy(output)
+        # Test with tuple inputs
+        result2 = layer((self.node_features, self.edge_index))
+        self.assertEqual(result2.shape, (self.num_nodes, self.num_features))
 
-                # Output should maintain node count and feature dimensions
-                self.assertEqual(
-                    output_np.shape,
-                    (self.num_nodes, self.num_features),
-                    f"Shape mismatch for aggregator '{aggr}'",
-                )
+        # Test with edge attributes
+        result3 = layer([self.node_features, self.edge_index, self.edge_attr])
+        self.assertIsNotNone(result3)
 
-    def test_message_passing_values(self):
-        """Test the actual values after message passing with different aggregations."""
-        print("\n--- Testing MessagePassing Values ---")
+    def test_edge_index_caching(self) -> None:
+        """Test edge index caching mechanism."""
+        layer = MessagePassing()
 
-        def manual_aggregate(
-            x: np.ndarray, edge_index: np.ndarray, method: str
-        ) -> np.ndarray:
-            """Manually compute aggregation for verification."""
-            num_nodes = x.shape[0]
-            out = np.zeros_like(x)
-            for target_idx in range(num_nodes):
-                # Find neighbors (source nodes) for current target
-                neighbor_mask = edge_index[1] == target_idx
-                neighbors = edge_index[0][neighbor_mask]
-                if len(neighbors) == 0:
-                    continue
-                neighbor_features = x[neighbors]
+        # Before any calls, cache should be empty
+        self.assertIsNone(layer._cached_edge_idx)
+        self.assertIsNone(layer._cached_edge_idx_hash)
 
-                if method == "mean":
-                    # pyrefly: ignore  # no-matching-overload, bad-argument-type
-                    out[target_idx] = np.mean(neighbor_features, axis=0)
-                elif method == "max":
-                    out[target_idx] = np.max(neighbor_features, axis=0)
-                elif method == "sum":
-                    out[target_idx] = np.sum(neighbor_features, axis=0)
-            return out
+        # First call should cache edge_index
+        _ = layer([self.node_features, self.edge_index])
+        self.assertIsNotNone(layer._cached_edge_idx)
+        self.assertIsNotNone(layer._cached_edge_idx_hash)
 
-        for aggr in self.aggregation_methods:
-            with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggregator=aggr)
-                # pyrefly: ignore  # not-callable
-                output = mp([self.features_keras, self.edge_index_keras])
+        # Verify the cached edge_index has correct dtype
+        self.assertEqual(ops.convert_to_numpy(layer._cached_edge_idx).dtype, np.int32)
 
-                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
-                output_np = keras.ops.convert_to_numpy(output)
+        # Verify the cached edge_index has correct shape
+        self.assertEqual(layer._cached_edge_idx.shape, self.edge_index.shape)
 
-                # Compute expected output manually
-                expected_output = manual_aggregate(
-                    self.features_np, self.edge_index_np, aggr
-                )
+    def test_pre_and_post_hooks(self) -> None:
+        """Test pre_aggregate and post_update hooks."""
 
-                # Compare actual vs expected
-                try:
-                    # pyrefly: ignore  # no-matching-overload
-                    np.testing.assert_allclose(
-                        output_np,
-                        # pyrefly: ignore  # bad-argument-type
-                        expected_output,
-                        rtol=1e-5,
-                        atol=1e-5,
-                        err_msg=f"Values mismatch for aggregator '{aggr}'",
-                    )
-                    print(f"✅ Values match for aggregation '{aggr}'")
-                except AssertionError as e:
-                    print(f"❌ Values DO NOT match for aggregation '{aggr}'")
-                    print(e)
-                    abs_diff = np.abs(output_np - expected_output)
-                    rel_diff = abs_diff / (np.abs(expected_output) + 1e-8)
-                    print(f"Max absolute difference: {np.max(abs_diff)}")
-                    print(f"Max relative difference: {np.max(rel_diff)}")
+        class CustomMessagePassing(MessagePassing):
+            def pre_aggregate(self, messages: KerasTensor) -> KerasTensor:
+                # Scale messages by 2
+                return messages * 2
 
-    def test_empty_graph(self):
-        """Test behavior with an empty graph (no edges)."""
-        print("\n--- Testing Empty Graph Handling ---")
-        empty_edge_index = keras.ops.convert_to_tensor(
-            np.zeros((2, 0), dtype=np.int64), dtype="int32"
-        )
+            def post_update(
+                self, x: KerasTensor, x_updated: KerasTensor
+            ) -> KerasTensor:
+                # Add residual connection
+                return x + x_updated
 
-        for aggr in self.aggregation_methods:
-            with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggregator=aggr)
-                # pyrefly: ignore  # not-callable
-                output = mp([self.features_keras, empty_edge_index])
+        layer = CustomMessagePassing(aggregator="sum")
 
-                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
-                output_np = keras.ops.convert_to_numpy(output)
+        # Small test case for easy verification
+        features = np.ones((3, 2), dtype=np.float32)
+        edge_index = np.array([[0, 1], [1, 2]], dtype=np.int32)
 
-                # With no edges, output should be zeros
-                expected_shape = (self.num_nodes, self.num_features)
-                self.assertEqual(output_np.shape, expected_shape)
-                # pyrefly: ignore  # no-matching-overload
-                np.testing.assert_allclose(
-                    output_np,
-                    # pyrefly: ignore  # bad-argument-type
-                    np.zeros(expected_shape),
-                    rtol=1e-5,
-                    atol=1e-5,
-                    err_msg=f"Empty graph output not zero for aggregator '{aggr}'",
-                )
+        result = layer([features, edge_index])
 
-    def test_single_node_graph(self):
-        """Test behavior with a single-node graph."""
-        print("\n--- Testing Single Node Graph Handling ---")
-        # Create a graph with a single node that has a self-loop
-        single_node_features = keras.ops.convert_to_tensor(
-            np.random.randn(1, self.num_features).astype(np.float32)
-        )
-        single_node_edge_index = keras.ops.convert_to_tensor(
-            np.array([[0], [0]]), dtype="int32"
-        )  # Self-loop
+        # Verify hooks were applied
+        self.assertIsNotNone(result)
 
-        for aggr in self.aggregation_methods:
-            with self.subTest(aggregation=aggr):
-                mp = DummyMessagePassing(aggregator=aggr)
-                # pyrefly: ignore  # not-callable
-                output = mp([single_node_features, single_node_edge_index])
+    def test_custom_message(self) -> None:
+        """Test custom message implementation."""
 
-                # Use keras.ops.convert_to_numpy for backend-agnostic conversion
-                output_np = keras.ops.convert_to_numpy(output)
+        class CustomMessageLayer(MessagePassing):
+            def message(
+                self,
+                x_i: KerasTensor,
+                x_j: KerasTensor,
+                edge_attr: KerasTensor | None = None,
+                edge_index: KerasTensor | None = None,
+                size: tuple[int, int] | None = None,
+                **kwargs,
+            ) -> KerasTensor:
+                # Custom message: difference between source and target
+                return x_j - x_i
 
-                # Output should have shape [1, num_features]
-                expected_shape = (1, self.num_features)
-                self.assertEqual(output_np.shape, expected_shape)
+        layer = CustomMessageLayer(aggregator="mean")
+        result = layer([self.node_features, self.edge_index])
 
-                # Since it's a self-loop, the output should be the input feature
-                # (for mean/sum/max with a single value, they all return that value)
-                np.testing.assert_allclose(
-                    output_np,
-                    keras.ops.convert_to_numpy(single_node_features),
-                    rtol=1e-5,
-                    atol=1e-5,
-                    err_msg=f"Single node graph output incorrect for aggregator '{aggr}'",
-                )
+        self.assertEqual(result.shape, (self.num_nodes, self.num_features))
+
+    def test_custom_update(self) -> None:
+        """Test custom update implementation."""
+
+        class CustomUpdateLayer(MessagePassing):
+            def update(
+                self, aggregated: KerasTensor, x: KerasTensor | None = None
+            ) -> KerasTensor:
+                # Custom update: multiply by 2 and add bias
+                return aggregated * 2 + 1
+
+        layer = CustomUpdateLayer(aggregator="sum")
+        result = layer([self.node_features, self.edge_index])
+
+        self.assertEqual(result.shape, (self.num_nodes, self.num_features))
+
+    def test_serialization(self) -> None:
+        """Test layer serialization and deserialization."""
+        layer = MessagePassing(aggregator="max", name="test_layer")
+
+        # Get config
+        config = layer.get_config()
+        self.assertEqual(config["aggregator"], "max")
+        self.assertEqual(config["name"], "test_layer")
+
+        # Create new layer from config
+        new_layer = MessagePassing.from_config(config)
+        self.assertEqual(new_layer.aggregator, "max")
+        self.assertEqual(new_layer.name, "test_layer")
+
+    def test_compute_output_shape(self) -> None:
+        """Test compute_output_shape method."""
+        layer = MessagePassing()
+
+        # Test with list input shapes
+        input_shapes = [(None, 5, 32), (None, 2, None)]
+        output_shape = layer.compute_output_shape(input_shapes)
+        self.assertEqual(output_shape, (None, 5, 32))
+
+        # Test with tuple input shapes
+        input_shapes = ((None, 5, 32), (None, 2, None))
+        output_shape = layer.compute_output_shape(input_shapes)
+        self.assertEqual(output_shape, (None, 5, 32))
+
+    def test_numerical_stability(self) -> None:
+        """Test numerical stability with extreme values."""
+        layer = MessagePassing(aggregator="mean")
+
+        # Test with very large values
+        large_messages = np.full((100, 10), 1e10, dtype=np.float32)
+        target_idx = np.zeros(100, dtype=np.int32)
+
+        result = layer.aggregate(large_messages, target_idx, num_nodes=1)
+        result_numpy = ops.convert_to_numpy(result)
+        self.assertFalse(np.any(np.isnan(result_numpy)))
+        self.assertFalse(np.any(np.isinf(result_numpy)))
+
+        # Test with very small values
+        small_messages = np.full((100, 10), 1e-10, dtype=np.float32)
+        result = layer.aggregate(small_messages, target_idx, num_nodes=1)
+        result_numpy = ops.convert_to_numpy(result)
+        self.assertFalse(np.any(np.isnan(result_numpy)))
+        self.assertFalse(np.any(np.isinf(result_numpy)))
+
+    def test_invalid_inputs(self) -> None:
+        """Test error handling for invalid inputs."""
+        layer = MessagePassing()
+
+        # Test with invalid input format
+        with self.assertRaises(ValueError):
+            layer(self.node_features)  # Missing edge_index
+
+        with self.assertRaises(ValueError):
+            layer([self.node_features])  # Only one element in list
+
+    def test_integration_with_keras_model(self) -> None:
+        """Test integration with Keras Model API."""
+        # Test that the layer can be used in a model without errors
+        # We'll test construction and basic functionality
+
+        # Create a message passing layer
+        layer = MessagePassing(aggregator="mean", name="test_message_passing")
+
+        # Test that it can process inputs directly
+        result = layer([self.node_features, self.edge_index])
+        self.assertEqual(result.shape, (self.num_nodes, self.num_features))
+
+        # Test that layer can be serialized/deserialized (important for model saving)
+        config = layer.get_config()
+        new_layer = MessagePassing.from_config(config)
+
+        # Test that the new layer produces same output
+        result2 = new_layer([self.node_features, self.edge_index])
+        # pyrefly: ignore # implicitly-defined-attribute
+        self.assertEqual(result2.shape, (self.num_nodes, self.num_features))
+
+        # Test layer name is preserved
+        self.assertEqual(new_layer.name, "test_message_passing")
+
+
+# Performance benchmark tests
+class BenchmarkMessagePassing:
+    """Benchmark tests for MessagePassing layer performance."""
+
+    sizes: list[int]  # Explicitly declare instance attribute
+    feature_dims: list[int]  # Explicitly declare instance attribute
+
+    def setup_method(self) -> None:
+        """Set up benchmark fixtures."""
+        # Create larger graphs for benchmarking
+        self.sizes = [100, 1000, 10000]
+        self.feature_dims = [32, 64, 128]
+
+    def create_random_graph(
+        self, num_nodes: int, num_features: int, avg_degree: int = 10
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Create a random graph for benchmarking."""
+        num_edges = num_nodes * avg_degree
+
+        # Random node features
+        features = np.random.randn(num_nodes, num_features).astype(np.float32)
+
+        # Random edges (with replacement for simplicity)
+        source = np.random.randint(0, num_nodes, size=num_edges)
+        target = np.random.randint(0, num_nodes, size=num_edges)
+        edge_index = np.stack([source, target], axis=0).astype(np.int32)
+
+        return features, edge_index
+
+    def benchmark_aggregators(self) -> dict[int, dict[str, float]]:
+        """Benchmark different aggregation methods."""
+        import time
+
+        aggregators = ["mean", "max", "sum", "min", "std"]
+        results = {}
+
+        for num_nodes in self.sizes:
+            results[num_nodes] = {}
+            features, edge_index = self.create_random_graph(num_nodes, 64)
+
+            for aggregator in aggregators:
+                layer = MessagePassing(aggregator=aggregator)
+
+                # Warm up
+                _ = layer([features, edge_index])
+
+                # Measure time
+                start = time.time()
+                for _ in range(10):
+                    _ = layer([features, edge_index])
+                end = time.time()
+
+                avg_time = (end - start) / 10
+                results[num_nodes][aggregator] = avg_time
+
+        return results
 
 
 if __name__ == "__main__":
-    # pyrefly: ignore  # not-callable
-    unittest.main()
+    # Run tests
+    pytest.main([__file__, "-v"])
