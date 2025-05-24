@@ -201,34 +201,59 @@ class GCNConv(MessagePassing):
             return (batch_size, self.output_dim)
         return (None, self.output_dim)
 
-    def propagate(
-        self,
-        x: keras.KerasTensor,
-        edge_index: keras.KerasTensor,
-        edge_weight: keras.KerasTensor,
-        training: Optional[bool] = None,
-    ) -> keras.KerasTensor:
-        """Perform GCN-specific message passing.
-
-        This method implements the core GCN propagation:
-        1. Transform node features: X' = XW
-        2. Compute messages: M = X'[source] * edge_weight
-        3. Aggregate messages: A = aggregate(M, target_indices)
-        4. Update with bias: H = A + b
+    def propagate(self, inputs: Union[list, tuple]) -> keras.KerasTensor:
+        """
+        Propagate messages through the graph by executing the full message passing flow:
+        1. Extract node features and edge indices
+        2. Transform node features with kernel weights
+        3. Compute messages between connected nodes with edge weights
+        4. Aggregate messages for each target node
+        5. Apply bias and return updated features
 
         Args:
-            x: Node features tensor of shape [N, F]
-            edge_index: Edge indices tensor of shape [2, E]
-            edge_weight: Edge weights tensor of shape [E]
+            inputs: List containing [x, edge_index, edge_weight, training]
+                - x: Tensor of shape [N, F] containing node features
+                - edge_index: Tensor of shape [2, E] containing edge indices
+                - edge_weight: Tensor of shape [E] containing edge weights
+                - training: Optional boolean for training mode
 
         Returns:
-            Updated node features of shape [N, output_dim]
+            Tensor of shape [N, output_dim] containing the updated node features
         """
+        x, edge_index, edge_weight = inputs[0], inputs[1], inputs[2]
+        training = inputs[3] if len(inputs) > 3 else None
+
+        num_nodes = ops.shape(x)[0]
+
+        # Handle empty graph case
+        if num_nodes == 0:
+            return ops.zeros((0, self.output_dim), dtype=x.dtype)
+
+        # Check if there are any edges
+        num_edges = ops.shape(edge_index)[1] if len(ops.shape(edge_index)) > 1 else 0
+        if num_edges == 0:
+            # No edges case - just transform features and apply bias
+            x_transformed = ops.matmul(
+                x, self.kernel
+            )  # pyrefly: ignore  # implicitly-defined-attribute
+            if self.dropout_rate > 0 and training:
+                dropout_layer = layers.Dropout(self.dropout_rate)
+                x_transformed = dropout_layer(x_transformed, training=training)
+            if (
+                self.use_bias and self.bias is not None
+            ):  # pyrefly: ignore  # implicitly-defined-attribute
+                x_transformed = ops.add(
+                    x_transformed, self.bias
+                )  # pyrefly: ignore  # implicitly-defined-attribute
+            return x_transformed
+
         # Transform features
-        x_transformed = ops.matmul(x, self.kernel)
+        x_transformed = ops.matmul(
+            x, self.kernel
+        )  # pyrefly: ignore  # implicitly-defined-attribute
 
         # Apply dropout to transformed features if training
-        if self.dropout_rate > 0:
+        if self.dropout_rate > 0 and training:
             dropout_layer = layers.Dropout(self.dropout_rate)
             x_transformed = dropout_layer(x_transformed, training=training)
 
@@ -243,12 +268,15 @@ class GCNConv(MessagePassing):
         messages = source_features * ops.expand_dims(edge_weight, axis=1)
 
         # Aggregate messages
-        num_nodes = ops.shape(x)[0]
         aggregated = self.aggregate(messages, target_idx, num_nodes=num_nodes)
 
         # Apply bias
-        if self.use_bias and self.bias is not None:
-            aggregated = ops.add(aggregated, self.bias)
+        if (
+            self.use_bias and self.bias is not None
+        ):  # pyrefly: ignore  # implicitly-defined-attribute
+            aggregated = ops.add(
+                aggregated, self.bias
+            )  # pyrefly: ignore  # implicitly-defined-attribute
 
         return aggregated
 
@@ -312,7 +340,7 @@ class GCNConv(MessagePassing):
             edge_weight = ops.ones((num_edges,), dtype=self.compute_dtype)
 
         # Perform propagation
-        output = self.propagate(x, edge_index, edge_weight, training=training)
+        output = self.propagate([x, edge_index, edge_weight, training])
 
         return output
 

@@ -113,6 +113,12 @@ class MessagePassing(layers.Layer):
             return ops.segment_sum(
                 data=messages, segment_ids=target_idx, num_segments=num_nodes
             )
+        elif self.aggregator == "pooling":
+            # For pooling, we use max aggregation (assuming messages have been pre-processed by MLP)
+            aggr = ops.segment_max(
+                data=messages, segment_ids=target_idx, num_segments=num_nodes
+            )
+            return ops.where(ops.isinf(aggr), ops.zeros_like(aggr), aggr)
         else:
             raise ValueError(f"Invalid aggregator: {self.aggregator}")
 
@@ -160,6 +166,7 @@ class MessagePassing(layers.Layer):
         updates = self.update(aggregated)
         return updates
 
+    # pyrefly: ignore # implicityly-defined-attribute
     def call(
         self, inputs: Any, training: bool | None = None
     ) -> Any:  # pyrefly: ignore  # bad-override
