@@ -9,15 +9,13 @@ dynamic = ["version"]
 readme = "README.md"
 requires-python = ">=3.9" # Specify compatible Python versions
 license = { file = "LICENSE" } # Or use identifier: license = { text = "MIT" }
-authors = [
-    { name = "Huvinesh", email = "huvineshrajendran@gmail.com" },
-]
+authors = [{ name = "Huvinesh", email = "huvineshrajendran@gmail.com" }]
 keywords = ["keras", "graph neural network", "gnn", "gcn", "gin", "geometric"]
 classifiers = [ # Find classifiers at https://pypi.org/classifiers/
-    "Development Status :: 3 - Alpha", # Adjust as appropriate
+    "Development Status :: 3 - Alpha",                              # Adjust as appropriate
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License", # Match your license
+    "License :: OSI Approved :: MIT License",                       # Match your license
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -31,50 +29,48 @@ classifiers = [ # Find classifiers at https://pypi.org/classifiers/
 # Keep runtime dependencies minimal - only what's needed to use the package
 dependencies = [
     "keras>=3.0",
-    "numpy>=1.24.0",  # Compatible with both numpy 1.x and 2.x
+    "numpy>=1.24.0", # Compatible with both numpy 1.x and 2.x
 ]
 
 # --- Optional Dependencies ---
 [project.optional-dependencies]
 # Dataset dependencies (only needed if using specific datasets)
 datasets = [
-    "scipy>=1.11.0",  # Required for Cora dataset and other scientific datasets
+    "scipy>=1.11.0", # Required for Cora dataset and other scientific datasets
 ]
 
 # Testing dependencies
 test = [
     "pytest>=8.3.5",
-    "torch>=2.6.0",           # For numerical comparison tests
-    "torch-geometric>=2.6.1", # For numerical comparison tests
-    "tensorflow>=2.17",       # For backend testing
+    "torch>=2.6.0",              # For numerical comparison tests
+    "torch-geometric>=2.6.1",    # For numerical comparison tests
+    "tensorflow>=2.17",          # For backend testing
     "keras-geometric[datasets]", # Include dataset deps for testing
 ]
 
 # MacOS Metal support
 macos-metal = [
-    "tensorflow-metal>=1.2.0; platform_system=='Darwin' and platform_machine=='arm64'"
+    "tensorflow-metal>=1.2.0; platform_system=='Darwin' and platform_machine=='arm64'",
 ]
 
 # Development dependencies
 dev = [
-    "keras-geometric[test]",   # Includes all test deps
-    "pre-commit>=4.2.0",       # Code quality hooks
-    "ruff>=0.8.0",             # Fast Python linter/formatter
-    "pyrefly",                 # Type checking
-    "twine>=5.0.0",            # Package publishing
-    "build>=1.0.0",            # Package building
-    "hatch>=1.12.0",           # Build backend
-    "pip-audit>=2.7.0",        # Security scanning
+    "keras-geometric[test]", # Includes all test deps
+    "pre-commit>=4.2.0",     # Code quality hooks
+    "ruff>=0.8.0",           # Fast Python linter/formatter
+    "pyrefly",               # Type checking
+    "twine>=5.0.0",          # Package publishing
+    "build>=1.0.0",          # Package building
+    "hatch>=1.12.0",         # Build backend
+    "pip-audit>=2.7.0",      # Security scanning
 ]
 
 # All optional dependencies combined (for convenience)
-all = [
-    "keras-geometric[datasets,test,macos-metal]"
-]
+all = ["keras-geometric[datasets,test,macos-metal]"]
 
 # --- Project URLs ---
 [project.urls]
-Homepage = "https://github.com/Huvinesh-Rajendran-12/keras-geometric" # Link to your GitLab repo
+Homepage = "https://github.com/Huvinesh-Rajendran-12/keras-geometric"   # Link to your GitLab repo
 Repository = "https://github.com/Huvinesh-Rajendran-12/keras-geometric"
 
 
@@ -82,16 +78,10 @@ Repository = "https://github.com/Huvinesh-Rajendran-12/keras-geometric"
 [tool.hatch.version]
 # Use hatch-vcs to get version from Git tags
 source = "vcs"
-path = "src/keras_geometric/_version.py"
 
 [tool.hatch.build.targets.sdist]
 # Include/exclude files for the source distribution
-include = [
-    "/src",
-    "/pyproject.toml",
-    "/README.md",
-    "/LICENSE",
-]
+include = ["/src", "/pyproject.toml", "/README.md", "/LICENSE"]
 
 [tool.hatch.build.targets.wheel]
 # Include only the source code needed for the wheel
@@ -112,17 +102,17 @@ line-ending = "auto"
 [tool.ruff.lint]
 # Focus on the important rules, exclude overly strict type checking
 select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # pyflakes
-    "I",    # isort
-    "N",    # pep8-naming
-    "UP",   # pyupgrade
-    "B",    # flake8-bugbear
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "UP", # pyupgrade
+    "B",  # flake8-bugbear
     # Type checking - but relaxed
-    "ANN204",  # Missing return type annotation for special method (like __init__)
-    "ANN201",  # Missing return type annotation for public function
-    "ANN206",  # Missing return type annotation for classmethod
+    "ANN204", # Missing return type annotation for special method (like __init__)
+    "ANN201", # Missing return type annotation for public function
+    "ANN206", # Missing return type annotation for classmethod
 ]
 
 ignore = [
@@ -135,8 +125,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Relax rules for test files and datasets
-"tests/*" = ["ANN"]  # Skip all type annotation checks in tests
-"src/keras_geometric/datasets/*" = ["ANN"]  # Skip type checking in datasets
+"tests/*" = ["ANN"]                        # Skip all type annotation checks in tests
+"src/keras_geometric/datasets/*" = ["ANN"] # Skip type checking in datasets
 
 [tool.ruff.lint.isort]
 known-first-party = ["keras_geometric"]
