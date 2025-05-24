@@ -567,7 +567,7 @@ class TestGCNConvNumericalComparison(TestGCNConvBase):
             add_self_loops=add_self_loops,
             normalize=normalize,
         )
-
+        # pyrefly: ignore # implicitly-determined-attribute
         pyg_gcn = PyGGCNConv(
             in_channels=self.input_dim,
             out_channels=self.output_dim,

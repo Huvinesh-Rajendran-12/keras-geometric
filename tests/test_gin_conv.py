@@ -128,7 +128,7 @@ class TestGINConvInitialization(TestGINConvBase):
     def test_basic_initialization(self):
         """Test basic layer initialization with defaults."""
         print("\n--- Testing GINConv Basic Initialization ---")
-
+        # pyrefly: ignore # implicitly-determined-attribute
         gin = GINConv(output_dim=self.output_dim)
 
         # Check default values
@@ -170,6 +170,7 @@ class TestGINConvInitialization(TestGINConvBase):
                 dropout=dropout,
                 activation=activation,
             ):
+                # pyrefly: ignore # implicitly-determined-attribute
                 gin = GINConv(
                     output_dim=self.output_dim,
                     mlp_hidden=mlp_hidden,
@@ -196,6 +197,7 @@ class TestGINConvInitialization(TestGINConvBase):
         print("\n--- Testing GINConv Invalid Aggregator ---")
 
         with self.assertRaises(AssertionError):
+            # pyrefly: ignore # implicitly-determined-attribute
             GINConv(output_dim=self.output_dim, aggregator="invalid_aggr")
 
 
@@ -217,6 +219,7 @@ class TestGINConvForwardPass(TestGINConvBase):
 
         for mlp_hidden, aggr, use_bias in test_params:
             with self.subTest(mlp_hidden=mlp_hidden, aggr=aggr, bias=use_bias):
+                # pyrefly: ignore # implicityly-defined-attribute
                 gin = GINConv(
                     output_dim=self.output_dim,
                     mlp_hidden=mlp_hidden,
@@ -239,6 +242,7 @@ class TestGINConvForwardPass(TestGINConvBase):
         print("\n--- Testing GINConv Dropout Behavior ---")
 
         # Use high dropout rate to make effects visible
+        # pyrefly: ignore # implicitly-defined-attribute
         gin = GINConv(
             output_dim=self.output_dim,
             mlp_hidden=[16, 32],
@@ -285,6 +289,7 @@ class TestGINConvForwardPass(TestGINConvBase):
         empty_features = keras.ops.zeros((0, self.input_dim))
         empty_edges = keras.ops.zeros((2, 0), dtype="int32")
 
+        # pyrefly: ignore # implicitly-defined-attribute
         gin = GINConv(output_dim=self.output_dim, mlp_hidden=[16])
         output = gin([empty_features, empty_edges])
 
@@ -299,6 +304,7 @@ class TestGINConvForwardPass(TestGINConvBase):
         single_node_features = keras.ops.ones((1, self.input_dim))
         no_edges = keras.ops.zeros((2, 0), dtype="int32")
 
+        # pyrefly: ignore # implicitly-defined-attribute
         gin = GINConv(output_dim=self.output_dim, mlp_hidden=[16], eps_init=0.5)
         output = gin([single_node_features, no_edges])
 
@@ -322,6 +328,7 @@ class TestGINConvForwardPass(TestGINConvBase):
             [[0, 1], [1, 0]], dtype="int32"
         )  # Only 0-1 connected
 
+        # pyrefly: ignore # implicitly-defined-attribute
         gin = GINConv(output_dim=self.output_dim, aggregator="sum")
         output = gin([disconnected_features, disconnected_edges])
 
@@ -337,6 +344,7 @@ class TestGINConvForwardPass(TestGINConvBase):
         print("\n--- Testing GINConv Trainable Epsilon ---")
 
         # Create layer with trainable epsilon
+        # pyrefly: ignore # implicitly-defined-attribute
         gin = GINConv(
             output_dim=self.output_dim,
             mlp_hidden=[16],
@@ -353,6 +361,7 @@ class TestGINConvForwardPass(TestGINConvBase):
         self.assertTrue(eps_found, "Epsilon should be a trainable weight")
 
         # Test with non-trainable epsilon
+        # pyrefly: ignore # implicitly-defined-attribute
         gin_fixed = GINConv(
             output_dim=self.output_dim,
             mlp_hidden=[16],
@@ -390,6 +399,8 @@ class TestGINConvSerialization(TestGINConvBase):
             "name": "test_gin_config",
         }
 
+        # Create layer with non-default parameters
+        # pyrefly: ignore # implicitly-defined-attribute
         gin1 = GINConv(**original_config)
 
         # Build the layer
@@ -430,6 +441,7 @@ class TestGINConvSerialization(TestGINConvBase):
 
         # Test layer reconstruction
         try:
+            # pyrefly: ignore # implicitly-determined-attribute
             gin2 = GINConv.from_config(config)
         except Exception as e:
             self.fail(f"GINConv.from_config failed: {e}")
@@ -454,6 +466,8 @@ class TestGINConvGradients(TestGINConvBase):
         """Test that gradients flow properly through the layer."""
         print("\n--- Testing GINConv Gradient Flow ---")
 
+        # Create layer with non-default parameters
+        # pyrefly: ignore # implicityly-defined-attribute
         gin = GINConv(
             output_dim=self.output_dim,
             mlp_hidden=[16],
@@ -572,6 +586,7 @@ class TestGINConvNumericalComparison(TestGINConvBase):
                 pyg_mlp = nn.Sequential(*pyg_mlp_layers)
 
                 # Create Keras layer
+                # pyrefly: ignore # implicitly-determined-attribute
                 keras_gin = GINConv(
                     output_dim=self.output_dim,
                     mlp_hidden=mlp_hidden,
@@ -586,6 +601,7 @@ class TestGINConvNumericalComparison(TestGINConvBase):
                 _ = keras_gin([self.features_keras, self.edge_index_keras])
 
                 # Create PyG layer
+                # pyrefly: ignore # implicityly-defined-attribute
                 pyg_gin = PyGGINConv(
                     nn=pyg_mlp,
                     eps=eps_init,
@@ -660,6 +676,7 @@ class TestGINConvAggregators(TestGINConvBase):
         outputs = {}
 
         for aggr in ["sum", "mean", "max"]:
+            # pyrefly: ignore # implicityly-defined-attribute
             gin = GINConv(
                 output_dim=self.output_dim,
                 mlp_hidden=[16],
@@ -696,6 +713,7 @@ class TestGINConvAggregators(TestGINConvBase):
         edges = keras.ops.array([[1, 2, 3], [0, 0, 0]], dtype="int32")
 
         # Test sum aggregation
+        # pyrefly: ignore # implicityly-defined-attribute
         gin_sum = GINConv(
             output_dim=self.output_dim,
             aggregator="sum",
@@ -704,6 +722,7 @@ class TestGINConvAggregators(TestGINConvBase):
         output_sum = gin_sum([features, edges])
 
         # Test mean aggregation
+        # pyrefly: ignore # implicityly-defined-attribute
         gin_mean = GINConv(
             output_dim=self.output_dim,
             aggregator="mean",
@@ -729,4 +748,5 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=UserWarning)
 
     # Run tests
+    # pyrefly: ignore  # not-callable
     unittest.main(verbosity=2)

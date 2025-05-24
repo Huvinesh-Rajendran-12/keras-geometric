@@ -2,7 +2,6 @@ import itertools
 import os
 import sys
 import unittest
-import warnings
 
 # --- Keras Imports ---
 import keras
@@ -278,6 +277,7 @@ class TestGATv2ConvForwardPass(TestGATv2ConvBase):
         empty_features = keras.ops.zeros((0, self.input_dim))
         empty_edges = keras.ops.zeros((2, 0), dtype="int32")
 
+        # pyrefly: ignore # implicitly-determined-attribute
         gat = GATv2Conv(
             output_dim=self.output_dim, heads=2, concat=True
         )  # pyrefly: ignore  # not-callable
@@ -309,7 +309,7 @@ class TestGATv2ConvForwardPass(TestGATv2ConvBase):
         # Test graph with only self-loops
         features = keras.ops.ones((3, self.input_dim))
         self_loop_edges = keras.ops.array([[0, 1, 2], [0, 1, 2]], dtype="int32")
-
+        # pyrefly: ignore # implicitly-determined-attribute
         gat = GATv2Conv(
             output_dim=self.output_dim, heads=1, concat=True
         )  # pyrefly: ignore  # not-callable
@@ -559,7 +559,6 @@ class TestGATv2ConvNumericalComparison(TestGATv2ConvBase):
 # Test runner
 if __name__ == "__main__":
     # Configure test verbosity and warnings
-    warnings.filterwarnings("ignore", category=UserWarning)
 
     # Run tests with custom test loader if needed
     # pyrefly: ignore  # not-callable

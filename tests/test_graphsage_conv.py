@@ -43,8 +43,13 @@ except Exception as e:
 
 # --- PyTorch Geometric Imports (Optional) ---
 try:
+    # pyrefly: ignore  # import-error
     import torch
+
+    # pyrefly: ignore  # import-error
     import torch.nn as nn
+
+    # pyrefly: ignore  # import-error
     from torch_geometric.nn import SAGEConv as PyGSAGEConv  # Import SAGEConv
 
     # Force CPU execution for PyTorch side
@@ -224,16 +229,23 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
         """Test layer get_config and from_config methods."""
         print("\n--- Testing GraphSAGEConv Config Serialization ---")
         # Test with pooling aggregator and non-defaults
+        # pyrefly: ignore  # no-matching-overload
         layer1_config_params = dict(
             output_dim=self.output_dim + 1,
+            # pyrefly: ignore  # bad-argument-type
             aggregator="pooling",
             normalize=True,
             root_weight=False,
             use_bias=False,
+            # pyrefly: ignore  # bad-argument-type
             activation="tanh",
+            # pyrefly: ignore  # bad-argument-type
             pool_activation="sigmoid",
+            # pyrefly: ignore  # bad-argument-type
             kernel_initializer="he_normal",
+            # pyrefly: ignore  # bad-argument-type
             bias_initializer="ones",
+            # pyrefly: ignore  # bad-argument-type
             name="test_sage_config",
         )
         layer1 = SAGEConv(**layer1_config_params)
@@ -360,17 +372,20 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
                 # Sync neighbor weights (W_r in Keras, maps to lin_r or lin_l in PyG)
                 if root_weight:
                     # If root_weight is True, PyG has lin_r for neighbors
+                    # pyrefly: ignore  # missing-attribute
                     pyg_sage.lin_r.weight.data.copy_(
                         torch.tensor(keras_weights_neigh[0].T)
                     )
                 else:
                     # If root_weight is False, PyG might use lin_l for neighbors
+                    # pyrefly: ignore  # missing-attribute
                     pyg_sage.lin_l.weight.data.copy_(
                         torch.tensor(keras_weights_neigh[0].T)
                     )
 
                 # Sync self weights (W_l in Keras, maps to lin_l in PyG) if root_weight is True
                 if root_weight and keras_weights_self is not None:
+                    # pyrefly: ignore  # missing-attribute
                     pyg_sage.lin_l.weight.data.copy_(
                         torch.tensor(keras_weights_self[0].T)
                     )
@@ -379,15 +394,18 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
                 if use_bias and keras_bias is not None:
                     if root_weight:
                         # Bias goes to lin_l in PyG when root_weight=True
+                        # pyrefly: ignore  # missing-attribute
                         pyg_sage.lin_l.bias.data.copy_(torch.tensor(keras_bias))
                     else:
                         # Bias goes to lin_l in PyG when root_weight=False (assuming lin_l is used for neighbors)
+                        # pyrefly: ignore  # missing-attribute
                         pyg_sage.lin_l.bias.data.copy_(torch.tensor(keras_bias))
 
                 print("Weights synced.")
 
                 # --- Perform Forward Pass ---
                 keras_output = keras_sage([self.features_keras, self.edge_index_keras])
+                # pyrefly: ignore  # not-callable
                 pyg_output = pyg_sage(self.features_torch, self.edge_index_torch)
 
                 # --- Compare Final Outputs ---
@@ -471,6 +489,7 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
         )
 
         for i in range(num_nodes):
+            # pyrefly: ignore  # bad-argument-type
             neighbors_indices = adj[i]
             if not neighbors_indices:
                 aggregated_np[i, :] = 0.0  # Max of empty set replaced by 0 in layer
@@ -534,4 +553,5 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
 
 
 if __name__ == "__main__":
+    # pyrefly: ignore  # not-callable
     unittest.main()

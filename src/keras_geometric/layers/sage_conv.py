@@ -376,9 +376,8 @@ class SAGEConv(MessagePassing):
         )
 
         # 2. Transform aggregated neighbors
-        h_neigh = self.lin_neigh(
-            aggregated
-        )  # pyrefly: ignore  # implicitly-defined-attribute
+        # pyrefly: ignore # implicitly-defined-attribute
+        h_neigh = self.lin_neigh(aggregated)
 
         # 3. Transform and combine self features (if root_weight=True)
         if self.root_weight and self.lin_self is not None:
