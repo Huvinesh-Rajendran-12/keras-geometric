@@ -1,14 +1,21 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any
 
-import keras
 from keras import initializers, layers, ops
 
-# Assuming MessagePassing is in the same directory
+# Use relative imports to avoid circular import issues
 from .message_passing import MessagePassing
 
-# Assuming utils are in sibling directory 'utils' relative to package root
-if TYPE_CHECKING or True:
-    from keras_geometric.utils import add_self_loops
+
+# Helper function to add self-loops
+def add_self_loops(edge_index: Any, num_nodes: int) -> Any:
+    """Adds self-loops to edge_index using keras.ops."""
+    # Ensure edge_index has shape (2, E)
+    if ops.shape(edge_index)[0] != 2:
+        edge_index = ops.stack([edge_index[0], edge_index[1]], axis=0)
+    loop_indices = ops.arange(0, num_nodes, dtype=edge_index.dtype)
+    self_loops = ops.stack([loop_indices, loop_indices], axis=0)
+    edge_index_with_loops = ops.concatenate([edge_index, self_loops], axis=1)
+    return edge_index_with_loops
 
 
 class GATv2Conv(MessagePassing):
@@ -19,21 +26,18 @@ class GATv2Conv(MessagePassing):
     from the paper "How Attentive are Graph Attention Networks?"
     (https://arxiv.org/abs/2105.14491).
 
-    Bias handling aims to match PyTorch Geometric: bias is applied in the
-    initial linear transform AND as a final additive term if use_bias=True.
-
     Args:
         output_dim (int): Dimensionality of the output features per head.
         heads (int, optional): Number of multi-head attentions. Defaults to 1.
         concat (bool, optional): Whether to concatenate or average multi-head attentions. Defaults to True.
         negative_slope (float, optional): LeakyReLU negative slope. Defaults to 0.2.
         dropout (float, optional): Dropout rate for attention coefficients. Defaults to 0.0.
-        use_bias (bool, optional): Whether to add bias terms (both in linear transform and final). Defaults to True.
-        kernel_initializer (str, optional): Initializer identifier for kernel weights. Defaults to 'glorot_uniform'.
-        bias_initializer (str, optional): Initializer identifier for bias weights. Defaults to 'zeros'.
-        att_initializer (str, optional): Initializer identifier for attention weights. Defaults to 'glorot_uniform'.
+        use_bias (bool, optional): Whether to add bias terms. Defaults to True.
+        kernel_initializer (str, optional): Initializer for kernel weights. Defaults to 'glorot_uniform'.
+        bias_initializer (str, optional): Initializer for bias weights. Defaults to 'zeros'.
+        att_initializer (str, optional): Initializer for attention weights. Defaults to 'glorot_uniform'.
         add_self_loops (bool, optional): Whether to add self-loops. Defaults to True.
-        **kwargs: Additional arguments passed to the `MessagePassing` base class.
+        **kwargs: Additional arguments passed to the MessagePassing base class.
     """
 
     def __init__(
@@ -57,44 +61,50 @@ class GATv2Conv(MessagePassing):
         self.heads = heads
         self.concat = concat
         self.negative_slope = negative_slope
-        self.dropout_rate = dropout  # Store as dropout_rate for clarity
+        self.dropout_rate = dropout
         self.dropout_layer = layers.Dropout(dropout) if dropout > 0 else None
-        self.use_bias = use_bias  # Controls bias in *both* places
+        self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
-        self.bias_initializer = bias_initializer  # Used for *both* biases
+        self.bias_initializer = bias_initializer
         self.att_initializer = att_initializer
         self.add_self_loops = add_self_loops
 
         self.features_per_head = output_dim
 
-        # Placeholder for layers/weights
-        self.linear_transform: Optional[layers.Dense] = None
-        self.att: Optional[keras.Variable] = None
-        self.bias: Optional[keras.Variable] = None  # The final bias term
+        # Initialize attributes that will be defined in build
+        self.linear_transform = None
+        self.att = None
+        self.bias = None
+        self.training = False  # Initialize training flag to satisfy Pyrefly
 
     def build(self, input_shape: Any) -> None:
         """Build the layer weights."""
-        input_dim_shape = input_shape[0]
+        # Extract input shape
+        if isinstance(input_shape, list) and len(input_shape) >= 1:
+            input_dim_shape = input_shape[0]
+        else:
+            input_dim_shape = input_shape
+
         if not isinstance(input_dim_shape, (list, tuple)) or len(input_dim_shape) != 2:
             raise ValueError(
                 f"Expected features input shape like (N, F), but got {input_dim_shape}"
             )
+
         node_feature_dim = input_dim_shape[1]
         if node_feature_dim is None:
             raise ValueError("Input feature dimension cannot be None.")
 
-        # Linear transformation for node features (W)
-        # --- FIX: Apply bias here *if* self.use_bias is True ---
+        # Linear transformation for node features
         self.linear_transform = layers.Dense(
             self.heads * self.features_per_head,
             kernel_initializer=self.kernel_initializer,
-            use_bias=self.use_bias,  # Apply bias here
-            bias_initializer=self.bias_initializer,  # Use same initializer
+            use_bias=self.use_bias,
+            bias_initializer=self.bias_initializer,
             name="linear_transform",
         )
         self.linear_transform.build((None, node_feature_dim))
 
-        # Attention parameters (a)
+        # Attention parameters - using original GAT mechanism for now
         self.att = self.add_weight(
             shape=(1, self.heads, self.features_per_head),
             initializer=initializers.get(self.att_initializer),
@@ -102,36 +112,50 @@ class GATv2Conv(MessagePassing):
             trainable=True,
         )
 
-        # --- FIX: Add separate final bias weight *if* self.use_bias is True ---
+        # Final bias
         if self.use_bias:
             bias_shape = (
-                (self.heads * self.output_dim,) if self.concat else (self.output_dim,)
+                (self.heads * self.features_per_head,)
+                if self.concat
+                else (self.features_per_head,)
             )
-            # Use a distinct name to avoid potential conflicts if Keras reuses names
             self.bias = self.add_weight(
                 shape=bias_shape,
-                initializer=initializers.get(
-                    self.bias_initializer
-                ),  # Use same initializer
-                name="final_bias",  # Changed name for clarity
+                initializer=initializers.get(self.bias_initializer),
+                name="final_bias",
                 trainable=True,
             )
         else:
             self.bias = None
 
-        super().build(input_shape)  # Call base build
+        super().build(input_shape)
 
-    def call(self, inputs: tuple[Any, Any], training: Optional[bool] = None) -> Any:
-        """Perform GATv2 convolution."""
-        x, edge_index = inputs
+    def call(self, inputs: Any, training: bool | None = None) -> Any:
+        """Perform GATv2 convolution.
+
+        Args:
+            inputs: List containing [x, edge_index]
+                - x: Node features tensor of shape [N, F]
+                - edge_index: Edge indices tensor of shape [2, E]
+            training: Boolean indicating training or inference mode
+
+        Returns:
+            Tensor of shape [N, output_dim * heads] or [N, output_dim] depending on concat
+        """
+        # Handle different input formats
+        if isinstance(inputs, (list, tuple)) and len(inputs) == 2:
+            x, edge_index = inputs
+        else:
+            raise ValueError(f"Expected inputs to be [x, edge_index], got {inputs}")
+
         edge_index = ops.cast(edge_index, dtype="int32")
 
+        # Add self-loops if requested
         if self.add_self_loops:
             num_nodes = ops.shape(x)[0]
             edge_index = add_self_loops(edge_index, num_nodes)
 
         # Pass data and training flag to propagate
-        # MessagePassing expects inputs as a tuple/list
         return self.propagate(inputs=(x, edge_index), training=training)
 
     def _compute_attention(self, h_i, h_j, target_idx, num_nodes):
@@ -169,22 +193,43 @@ class GATv2Conv(MessagePassing):
         """Execute the complete GATv2 message passing flow.
 
         Args:
-            x: Node features tensor of shape [N, F]
-            edge_index: Edge indices tensor of shape [2, E]
+            inputs: Tuple containing (x, edge_index)
+                - x: Node features tensor of shape [N, F]
+                - edge_index: Edge indices tensor of shape [2, E]
             **kwargs: Additional arguments, including training flag
+
+        Returns:
+            Tensor of shape [N, output_dim * heads] or [N, output_dim] depending on concat
         """
-        # Extract node features, edge indices, and training flag from inputs/kwargs
+        # Extract node features, edge indices, and training flag
         x, edge_index = inputs
         training = kwargs.get("training", None)
         n = ops.shape(x)[0]
         e = ops.shape(edge_index)[1]
 
+        # Handle empty graph case
+        if n == 0:
+            output_shape = (
+                (0, self.heads * self.features_per_head)
+                if self.concat
+                else (0, self.features_per_head)
+            )
+            return ops.zeros(output_shape, dtype=x.dtype)
+
+        # Handle no edges case
+        if e == 0:
+            output_shape = (
+                (n, self.heads * self.features_per_head)
+                if self.concat
+                else (n, self.features_per_head)
+            )
+            return ops.zeros(output_shape, dtype=x.dtype)
 
         if self.linear_transform is None or self.att is None:
             raise RuntimeError("Layer weights not built. Call layer on data first.")
 
-        # Apply linear transformation (W*x + b if use_bias=True): [N, F] -> [N, H * F_out]
-        x_transformed = self.linear_transform(x)  # Bias is applied here now
+        # Apply linear transformation: [N, F] -> [N, H * F_out]
+        x_transformed = self.linear_transform(x)
         # Reshape: [N, H, F_out]
         x_transformed = ops.reshape(
             x_transformed, [n, self.heads, self.features_per_head]
@@ -196,8 +241,6 @@ class GATv2Conv(MessagePassing):
         h_j = ops.take(x_transformed, source_idx, axis=0)
         h_i = ops.take(x_transformed, target_idx, axis=0)
 
-        if self.att is None:
-            raise RuntimeError("Attention weights not built. Call layer on data first.")
         # Compute attention coefficients: [E, H, 1]
         alpha = self._compute_attention(h_i, h_j, target_idx, n)
 
@@ -210,9 +253,7 @@ class GATv2Conv(MessagePassing):
 
         # Aggregate messages (using base class 'sum' aggregation)
         messages_flat = ops.reshape(messages, [e, self.heads * self.features_per_head])
-        aggregated = super().aggregate(
-            messages_flat, target_idx, num_nodes=n
-        )  # [N, H * F_out]
+        aggregated = super().aggregate(messages_flat, target_idx, num_nodes=n)
 
         # Final update (concat/average + final bias)
         output = self.update(aggregated)
@@ -225,26 +266,27 @@ class GATv2Conv(MessagePassing):
         return alpha * x_j  # [E, H, F_out]
 
     def update(self, aggregated: Any) -> Any:
-        """Final update step: handles multi-head outputs and applies final bias."""
+        """Final update step: handle multi-head outputs and apply bias."""
         n = ops.shape(aggregated)[0]
+
         if self.concat:
-            # aggregated is already [N, heads * features_per_head]
-            output = aggregated
+            # Keep concatenated features
+            output = aggregated  # [N, H*F_out]
         else:
             # Average across heads
             aggregated_reshaped = ops.reshape(
                 aggregated, [n, self.heads, self.features_per_head]
             )
-            output = ops.mean(aggregated_reshaped, axis=1)  # [N, features_per_head]
+            output = ops.mean(aggregated_reshaped, axis=1)  # [N, F_out]
 
-        # --- FIX: Add the separate final bias term ---
+        # Add final bias
         if self.use_bias and self.bias is not None:
-            output = ops.add(output, self.bias)
+            output = output + self.bias
 
         return output
 
     def get_config(self) -> dict[str, Any]:
-        """Serializes the layer configuration."""
+        """Serialize the layer configuration."""
         config = super().get_config()
         config.update(
             {
@@ -252,7 +294,7 @@ class GATv2Conv(MessagePassing):
                 "heads": self.heads,
                 "concat": self.concat,
                 "negative_slope": self.negative_slope,
-                "dropout": self.dropout_rate,  # Use 'dropout' key for compatibility with tests and PyG
+                "dropout": self.dropout_rate,
                 "use_bias": self.use_bias,
                 "kernel_initializer": self.kernel_initializer,
                 "bias_initializer": self.bias_initializer,
@@ -264,7 +306,6 @@ class GATv2Conv(MessagePassing):
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "GATv2Conv":
-        """Creates a layer from its config."""
-        config.pop("aggr", None)
-        # Make sure we use 'dropout' from config (the key is still 'dropout' for compatibility)
+        """Create a layer from its config."""
+        config.pop("aggr", None)  # Remove aggregator if present
         return cls(**config)

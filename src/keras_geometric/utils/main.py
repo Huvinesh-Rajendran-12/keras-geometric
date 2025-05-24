@@ -6,13 +6,10 @@ from keras import ops
 
 # Helper function to add self-loops (can be moved to a utils module)
 def add_self_loops(edge_index: Any, num_nodes: int) -> Any:
-    """Adds self-loops to edge_index using keras.ops.."""
+    """Adds self-loops to edge_index using keras.ops."""
     # Ensure edge_index has shape (2, E)
-    # If edge_index has shape (*, E), we need to extract the correct rows
     if ops.shape(edge_index)[0] != 2:
-        # Extract first two rows which represent source and target nodes
         edge_index = ops.stack([edge_index[0], edge_index[1]], axis=0)
-
     loop_indices = ops.arange(0, num_nodes, dtype=edge_index.dtype)
     self_loops = ops.stack([loop_indices, loop_indices], axis=0)
     edge_index_with_loops = ops.concatenate([edge_index, self_loops], axis=1)
