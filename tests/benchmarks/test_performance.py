@@ -21,10 +21,14 @@ if SRC_DIR not in sys.path:
 
 # Try to import PyTorch Geometric for comparison
 try:
+    # pyrefly: ignore  # import-error
     import torch
 
     # import torch_geometric
+    # pyrefly: ignore  # import-error
     from torch_geometric.nn import GCNConv as PyGGCNConv
+
+    # pyrefly: ignore  # import-error
     from torch_geometric.nn import GINConv as PyGGINConv
 
     TORCH_AVAILABLE = True
@@ -46,16 +50,23 @@ class BenchmarkBase(unittest.TestCase):
             torch.manual_seed(42)
 
         # Define common test data sizes
+        # pyrefly: ignore  # implicitly-defined-attribute
         self.small_size = (100, 16)  # 100 nodes, 16 features
+        # pyrefly: ignore  # implicitly-defined-attribute
         self.medium_size = (1000, 64)  # 1k nodes, 64 features
+        # pyrefly: ignore  # implicitly-defined-attribute
         self.large_size = (10000, 128)  # 10k nodes, 128 features
 
         # Define number of edges for each size
+        # pyrefly: ignore  # implicitly-defined-attribute
         self.small_edges = 300
+        # pyrefly: ignore  # implicitly-defined-attribute
         self.medium_edges = 5000
+        # pyrefly: ignore  # implicitly-defined-attribute
         self.large_edges = 50000
 
         # Number of runs for averaging
+        # pyrefly: ignore  # implicitly-defined-attribute
         self.num_runs = 5
 
     def _generate_graph_data(self, num_nodes, num_features, num_edges):
@@ -174,6 +185,7 @@ class TestGCNPerformance(BenchmarkBase):
         if results["torch_time"]:
             print(f"  PyTorch Geometric: {results['torch_time']:.6f} seconds")
             print(
+                # pyrefly: ignore  # bad-argument-type, missing-attribute
                 f"  Ratio (PyG/KerasG): {results['torch_time'] / results['keras_time']:.2f}x"
             )
 
@@ -193,6 +205,7 @@ class TestGCNPerformance(BenchmarkBase):
         if results["torch_time"]:
             print(f"  PyTorch Geometric: {results['torch_time']:.6f} seconds")
             print(
+                # pyrefly: ignore  # bad-argument-type, missing-attribute
                 f"  Ratio (PyG/KerasG): {results['torch_time'] / results['keras_time']:.2f}x"
             )
 
@@ -236,6 +249,7 @@ class TestGINPerformance(BenchmarkBase):
         if results["torch_time"]:
             print(f"  PyTorch Geometric: {results['torch_time']:.6f} seconds")
             print(
+                # pyrefly: ignore  # bad-argument-type, missing-attribute
                 f"  Ratio (PyG/KerasG): {results['torch_time'] / results['keras_time']:.2f}x"
             )
 
@@ -255,9 +269,11 @@ class TestGINPerformance(BenchmarkBase):
         if results["torch_time"]:
             print(f"  PyTorch Geometric: {results['torch_time']:.6f} seconds")
             print(
+                # pyrefly: ignore  # bad-argument-type, missing-attribute
                 f"  Ratio (PyG/KerasG): {results['torch_time'] / results['keras_time']:.2f}x"
             )
 
 
 if __name__ == "__main__":
+    # pyrefly: ignore  # not-callable
     unittest.main()

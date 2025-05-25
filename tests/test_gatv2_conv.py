@@ -483,8 +483,8 @@ class TestGATv2ConvNumericalComparison(TestGATv2ConvBase):
         np.testing.assert_allclose(
             kg_output_np,
             pyg_output_np,
-            rtol=1e-4,  # Stricter tolerance
-            atol=1e-4,
+            rtol=1e-6,  # Stricter tolerance
+            atol=1e-6,
             err_msg="Numerical outputs do not match between Keras and PyG",
         )
 
