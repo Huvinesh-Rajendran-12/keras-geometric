@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import keras
 import numpy as np
@@ -33,6 +33,7 @@ class GraphData:
         edge_index = graph.edge_index
         ```
     """
+
     def __init__(
         self,
         x: Union[np.ndarray, "keras.KerasTensor"],
@@ -40,14 +41,16 @@ class GraphData:
         edge_attr: Optional[Union[np.ndarray, "keras.KerasTensor"]] = None,
         y: Optional[Union[np.ndarray, "keras.KerasTensor"]] = None,
         num_nodes: Optional[int] = None,
-        **kwargs
-    ):
+        **kwargs: Any,
+    ) -> None:
         # Convert numpy arrays to tensors if needed
         self.x = self._ensure_tensor(x)
-        self.edge_index = self._ensure_tensor(edge_index, dtype='int32')
+        self.edge_index = self._ensure_tensor(edge_index, dtype="int32")
 
         # Store optional attributes
-        self.edge_attr = self._ensure_tensor(edge_attr) if edge_attr is not None else None
+        self.edge_attr = (
+            self._ensure_tensor(edge_attr) if edge_attr is not None else None
+        )
         self.y = self._ensure_tensor(y) if y is not None else None
 
         # Store number of nodes
@@ -61,7 +64,7 @@ class GraphData:
         for key, value in kwargs.items():
             self._additional_data[key] = self._ensure_tensor(value)
 
-    def _ensure_tensor(self, data, dtype=None):
+    def _ensure_tensor(self, data: Any, dtype: Optional[str] = None) -> Any:
         """Convert data to a tensor if it's not already one."""
         if data is None:
             return None
@@ -95,24 +98,24 @@ class GraphData:
             return 0
         return ops.shape(self.edge_attr)[1]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the graph data to a dictionary."""
         data_dict = {
-            'x': self.x,
-            'edge_index': self.edge_index,
+            "x": self.x,
+            "edge_index": self.edge_index,
         }
 
         if self.edge_attr is not None:
-            data_dict['edge_attr'] = self.edge_attr
+            data_dict["edge_attr"] = self.edge_attr
 
         if self.y is not None:
-            data_dict['y'] = self.y
+            data_dict["y"] = self.y
 
         data_dict.update(self._additional_data)
 
         return data_dict
 
-    def to_inputs(self) -> List:
+    def to_inputs(self) -> list:
         """
         Convert the graph data to a list of inputs for use with Keras models.
         Useful for functional API models.
@@ -124,14 +127,16 @@ class GraphData:
 
         return inputs
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Access additional data by attribute name."""
         if name in self._additional_data:
             return self._additional_data[name]
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
 
 
-def batch_graphs(graphs: List[GraphData]) -> GraphData:
+def batch_graphs(graphs: list[GraphData]) -> GraphData:
     """
     Batch multiple graphs into a single large graph with disjoint components.
 
@@ -160,23 +165,34 @@ def batch_graphs(graphs: List[GraphData]) -> GraphData:
     # Get dimensions for pre-allocation
     total_nodes = sum(g.num_nodes for g in graphs)
     total_edges = sum(g.num_edges for g in graphs)
-    node_feature_dim = graphs[0].num_node_features
 
     # Pre-allocate arrays with safe dtype checks
-    x_dtype = graphs[0].x.dtype if graphs[0].x is not None and hasattr(graphs[0].x, 'dtype') else 'float32'
-    batch_x = ops.zeros((total_nodes, node_feature_dim), dtype=x_dtype)
+    # batch_x = ops.zeros((total_nodes, node_feature_dim), dtype=x_dtype)
 
-    edge_index_dtype = graphs[0].edge_index.dtype if graphs[0].edge_index is not None and hasattr(graphs[0].edge_index, 'dtype') else 'int32'
+    x_list = [g.x for g in graphs]
+    batch_x = ops.concatenate(x_list, axis=0)
+
+    edge_index_dtype = (
+        graphs[0].edge_index.dtype
+        if graphs[0].edge_index is not None and hasattr(graphs[0].edge_index, "dtype")
+        else "int32"
+    )
     batch_edge_index = ops.zeros((2, total_edges), dtype=edge_index_dtype)
 
     # Track batch indices for each node
-    batch_indices = ops.zeros((total_nodes,), dtype='int32')
+    batch_indices = ops.zeros((total_nodes,), dtype="int32")
 
     has_edge_attr = all(g.edge_attr is not None for g in graphs)
     if has_edge_attr:
         edge_feature_dim = graphs[0].num_edge_features
-        edge_attr_dtype = graphs[0].edge_attr.dtype if graphs[0].edge_attr is not None and hasattr(graphs[0].edge_attr, 'dtype') else 'float32'
-        batch_edge_attr = ops.zeros((total_edges, edge_feature_dim), dtype=edge_attr_dtype)
+        edge_attr_dtype = (
+            graphs[0].edge_attr.dtype
+            if graphs[0].edge_attr is not None and hasattr(graphs[0].edge_attr, "dtype")
+            else "float32"
+        )
+        batch_edge_attr = ops.zeros(
+            (total_edges, edge_feature_dim), dtype=edge_attr_dtype
+        )
     else:
         batch_edge_attr = None
 
@@ -184,7 +200,11 @@ def batch_graphs(graphs: List[GraphData]) -> GraphData:
     if has_y:
         # Assume all targets have the same shape
         y_shape = ops.shape(graphs[0].y)
-        y_dtype = graphs[0].y.dtype if graphs[0].y is not None and hasattr(graphs[0].y, 'dtype') else 'float32'
+        y_dtype = (
+            graphs[0].y.dtype
+            if graphs[0].y is not None and hasattr(graphs[0].y, "dtype")
+            else "float32"
+        )
         if len(y_shape) == 1:  # Graph-level target
             batch_y = ops.zeros((len(graphs), y_shape[0]), dtype=y_dtype)
         else:
@@ -202,34 +222,26 @@ def batch_graphs(graphs: List[GraphData]) -> GraphData:
         num_edges = graph.num_edges
 
         # Copy node features
-        batch_x = ops.slice_update(
-            batch_x,
-            [node_offset, 0],
-            graph.x
-        )
+        batch_x = ops.slice_update(batch_x, [node_offset, 0], graph.x)
 
         # Set batch indices for these nodes
         batch_indices = ops.slice_update(
             batch_indices,
             [node_offset],
-            ops.multiply(ops.ones_like(ops.arange(num_nodes), dtype='int32'), i)
+            ops.multiply(ops.ones_like(ops.arange(num_nodes), dtype="int32"), i),
         )
 
         # Copy and adjust edge indices
         if num_edges > 0:
             shifted_edge_index = ops.add(graph.edge_index, node_offset)
             batch_edge_index = ops.slice_update(
-                batch_edge_index,
-                [0, edge_offset],
-                shifted_edge_index
+                batch_edge_index, [0, edge_offset], shifted_edge_index
             )
 
             # Copy edge features if available
             if has_edge_attr:
                 batch_edge_attr = ops.slice_update(
-                    batch_edge_attr,
-                    [edge_offset, 0],
-                    graph.edge_attr
+                    batch_edge_attr, [edge_offset, 0], graph.edge_attr
                 )
 
         # Copy targets if available
@@ -237,17 +249,11 @@ def batch_graphs(graphs: List[GraphData]) -> GraphData:
             y_shape = ops.shape(graph.y)
             if len(y_shape) == 1:  # Graph-level target
                 batch_y = ops.slice_update(
-                    batch_y,
-                    [i, 0],
-                    ops.expand_dims(graph.y, axis=0)
+                    batch_y, [i, 0], ops.expand_dims(graph.y, axis=0)
                 )
             else:
                 # Assume node-level targets
-                batch_y = ops.slice_update(
-                    batch_y,
-                    [node_offset, 0],
-                    graph.y
-                )
+                batch_y = ops.slice_update(batch_y, [node_offset, 0], graph.y)
 
         # Update offsets
         node_offset += num_nodes
@@ -260,7 +266,7 @@ def batch_graphs(graphs: List[GraphData]) -> GraphData:
         edge_attr=batch_edge_attr,
         y=batch_y,
         num_nodes=total_nodes,
-        batch=batch_indices
+        batch=batch_indices,
     )
 
     return batched_graph

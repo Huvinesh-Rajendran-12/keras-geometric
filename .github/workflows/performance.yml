@@ -1,0 +1,149 @@
+name: Performance Benchmarks
+
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Run weekly on Monday at 2 AM UTC
+  workflow_dispatch: # Allow manual triggering
+  pull_request:
+    paths:
+      - 'src/keras_geometric/layers/**'
+      - 'benchmarks/**'
+
+env:
+  UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+  PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+
+jobs:
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        keras-backend: [tensorflow, torch]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Configure uv cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+            ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-uv-benchmark-${{ matrix.keras-backend }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-benchmark-${{ matrix.keras-backend }}-
+
+      - name: Create venv and Install Dependencies
+        run: |
+          uv venv .venv --seed
+          source .venv/bin/activate
+          if [ "${{ matrix.keras-backend }}" = "torch" ]; then
+            uv pip install torch>=2.0.0 torch-geometric>=2.5.0
+          elif [ "${{ matrix.keras-backend }}" = "tensorflow" ]; then
+            uv pip install tensorflow>=2.17
+          fi
+          uv pip install keras>=3.0
+          uv pip install -e ".[test]"
+          uv pip install memory-profiler psutil
+
+      - name: Create benchmark directory
+        run: mkdir -p benchmarks
+
+      - name: Create benchmark script
+        run: |
+          cat > benchmarks/run_benchmarks.py << 'EOF'
+          import os
+          import time
+          import psutil
+          import numpy as np
+          import keras
+          from memory_profiler import memory_usage
+
+          # Set backend
+          os.environ['KERAS_BACKEND'] = '${{ matrix.keras-backend }}'
+
+          def benchmark_layer(layer_class, input_shape, **kwargs):
+              """Benchmark a single layer."""
+              def run_layer():
+                  # Create layer
+                  layer = layer_class(**kwargs)
+
+                  # Create dummy input
+                  x = keras.random.normal(input_shape)
+                  edge_index = keras.ops.array([[0, 1, 1, 2], [1, 0, 2, 1]], dtype='int32')
+
+                  # Build layer
+                  layer.build(input_shape)
+
+                  # Forward pass
+                  output = layer([x, edge_index])
+                  return output
+
+              # Measure memory usage
+              mem_usage = memory_usage(run_layer, interval=0.1)
+              max_memory = max(mem_usage) - min(mem_usage)
+
+              # Measure execution time
+              start_time = time.time()
+              for _ in range(10):
+                  run_layer()
+              avg_time = (time.time() - start_time) / 10
+
+              return {
+                  'memory_mb': max_memory,
+                  'avg_time_ms': avg_time * 1000,
+                  'backend': keras.backend.backend()
+              }
+
+          if __name__ == "__main__":
+              from keras_geometric.layers import GCNConv, GINConv, GATv2Conv, SAGEConv
+
+              results = {}
+              layers_to_test = [
+                  (GCNConv, {'output_dim': 64}),
+                  (GINConv, {'mlp_units': [64, 64]}),
+                  (GATv2Conv, {'output_dim': 64, 'num_heads': 4}),
+                  (SAGEConv, {'output_dim': 64})
+              ]
+
+              input_shape = (100, 32)  # 100 nodes, 32 features
+
+              print(f"Running benchmarks with backend: {keras.backend.backend()}")
+              print("=" * 60)
+
+              for layer_class, kwargs in layers_to_test:
+                  layer_name = layer_class.__name__
+                  try:
+                      result = benchmark_layer(layer_class, input_shape, **kwargs)
+                      results[layer_name] = result
+                      print(f"{layer_name:15} | Memory: {result['memory_mb']:6.1f} MB | Time: {result['avg_time_ms']:7.2f} ms")
+                  except Exception as e:
+                      print(f"{layer_name:15} | ERROR: {str(e)}")
+
+              print("=" * 60)
+              print(f"Total layers tested: {len(results)}")
+          EOF
+
+      - name: Run benchmarks
+        env:
+          KERAS_BACKEND: ${{ matrix.keras-backend }}
+        run: |
+          source .venv/bin/activate
+          cd benchmarks
+          python run_benchmarks.py
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ matrix.keras-backend }}
+          path: benchmarks/
