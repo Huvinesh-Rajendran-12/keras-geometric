@@ -6,6 +6,7 @@ import unittest
 # --- Keras Imports ---
 import keras
 import numpy as np
+from keras import ops
 
 
 # --- Backend Detection ---
@@ -24,7 +25,8 @@ if KERAS_BACKEND_IS_TORCH:
     print("Keras backend confirmed: 'torch'")
 else:
     print(
-        f"Warning: Keras backend is '{KERAS_BACKEND}', not 'torch'. Numerical comparison tests will be skipped."
+        f"Warning: Keras backend is '{KERAS_BACKEND}', not 'torch'. "
+        "Numerical comparison tests will be skipped."
     )
 
 
@@ -42,18 +44,16 @@ try:
     GATV2_AVAILABLE = True
 except ImportError as e:
     print(f"Could not import GATv2Conv layer: {e}")
-    GATv2Conv = None  # type: ignore
+    GATv2Conv = None
     GATV2_AVAILABLE = False
 
 # --- PyTorch Geometric Imports (Optional) ---
 TORCH_AVAILABLE = False
 PyGGATv2Conv = None
+torch = None
 
 try:
-    # pyrefly: ignore  # import-error
     import torch
-
-    # pyrefly: ignore  # import-error
     from torch_geometric.nn import GATv2Conv as PyGGATv2Conv
 
     # Force CPU execution for consistent testing
@@ -97,33 +97,25 @@ class TestGATv2ConvBase(unittest.TestCase):
             dtype=np.int64,
         )
 
-        # Convert to Keras tensors
-        self.features_keras = keras.ops.convert_to_tensor(self.features_np)
-        self.edge_index_keras = keras.ops.convert_to_tensor(
-            self.edge_index_np, dtype="int32"
-        )
+        # Convert to Keras tensors using ops
+        self.features_keras = ops.convert_to_tensor(self.features_np)
+        self.edge_index_keras = ops.convert_to_tensor(self.edge_index_np, dtype="int32")
 
         # Convert to PyTorch tensors if available
         if TORCH_AVAILABLE:
             self.features_torch = torch.tensor(self.features_np)
             self.edge_index_torch = torch.tensor(self.edge_index_np)
 
-    def _get_expected_output_shape(self, heads, concat):
+    def _get_expected_output_shape(self, heads: int, concat: bool) -> tuple[int, int]:
         """Calculate expected output shape based on configuration."""
         if concat:
             return (self.num_nodes, self.output_dim * heads)
         else:
             return (self.num_nodes, self.output_dim)
 
-    def _extract_numpy_output(self, output):
+    def _extract_numpy_output(self, output) -> np.ndarray:
         """Extract numpy array from output tensor (backend agnostic)."""
-        try:
-            return output.cpu().detach().numpy()
-        except AttributeError:
-            try:
-                return output.cpu().numpy()
-            except AttributeError:
-                return keras.ops.convert_to_numpy(output)
+        return ops.convert_to_numpy(output)
 
 
 @unittest.skipIf(not GATV2_AVAILABLE, "GATv2Conv layer could not be imported.")
@@ -134,7 +126,6 @@ class TestGATv2ConvInitialization(TestGATv2ConvBase):
         """Test basic layer initialization."""
         print("\n--- Testing GATv2Conv Basic Initialization ---")
 
-        # pyrefly: ignore  # not-callable
         gat = GATv2Conv(output_dim=self.output_dim)
 
         # Check default values
@@ -144,7 +135,7 @@ class TestGATv2ConvInitialization(TestGATv2ConvBase):
         self.assertEqual(gat.negative_slope, 0.2)
         self.assertEqual(gat.dropout_rate, 0.0)
         self.assertTrue(gat.use_bias)
-        self.assertTrue(gat.add_self_loops)
+        self.assertTrue(gat.add_self_loops_flag)  # Updated attribute name
         self.assertEqual(gat.aggregator, "sum")
 
     def test_parameter_variations(self):
@@ -164,7 +155,6 @@ class TestGATv2ConvInitialization(TestGATv2ConvBase):
             with self.subTest(
                 heads=heads, concat=concat, bias=use_bias, loops=add_loops
             ):
-                # pyrefly: ignore  # not-callable
                 gat = GATv2Conv(
                     output_dim=self.output_dim,
                     heads=heads,
@@ -180,7 +170,7 @@ class TestGATv2ConvInitialization(TestGATv2ConvBase):
                 self.assertEqual(gat.heads, heads)
                 self.assertEqual(gat.concat, concat)
                 self.assertEqual(gat.use_bias, use_bias)
-                self.assertEqual(gat.add_self_loops, add_loops)
+                self.assertEqual(gat.add_self_loops_flag, add_loops)  # Updated
                 self.assertEqual(gat.dropout_rate, 0.1)
                 self.assertEqual(gat.negative_slope, 0.1)
 
@@ -208,7 +198,6 @@ class TestGATv2ConvForwardPass(TestGATv2ConvBase):
             with self.subTest(
                 heads=heads, concat=concat, bias=use_bias, loops=add_loops
             ):
-                # pyrefly: ignore  # not-callable
                 gat = GATv2Conv(
                     output_dim=self.output_dim,
                     heads=heads,
@@ -219,7 +208,7 @@ class TestGATv2ConvForwardPass(TestGATv2ConvBase):
 
                 output = gat(input_data)
                 expected_shape = self._get_expected_output_shape(heads, concat)
-                output_shape = self._extract_numpy_output(output).shape
+                output_shape = tuple(output.shape)
 
                 self.assertEqual(
                     output_shape,
@@ -228,12 +217,29 @@ class TestGATv2ConvForwardPass(TestGATv2ConvBase):
                     f"bias={use_bias}, loops={add_loops}",
                 )
 
+    def test_method_signatures(self):
+        """Test that overridden methods have correct signatures."""
+        print("\n--- Testing GATv2Conv Method Signatures ---")
+
+        gat = GATv2Conv(output_dim=self.output_dim)
+
+        # Build the layer
+        _ = gat([self.features_keras, self.edge_index_keras])
+
+        # Test call method with edge_attr parameter
+        output_with_edge_attr = gat(
+            [self.features_keras, self.edge_index_keras], edge_attr=None, training=False
+        )
+        self.assertIsNotNone(output_with_edge_attr)
+
+        # Test that message method accepts all required parameters
+        # This is tested internally during forward pass
+
     def test_dropout_behavior(self):
         """Test dropout behavior during training vs inference."""
         print("\n--- Testing GATv2Conv Dropout Behavior ---")
 
         # Use high dropout rate to make effects visible
-        # pyrefly: ignore  # not-callable
         gat = GATv2Conv(
             output_dim=self.output_dim, heads=1, concat=True, dropout=0.5, use_bias=True
         )
@@ -274,52 +280,79 @@ class TestGATv2ConvForwardPass(TestGATv2ConvBase):
         print("\n--- Testing GATv2Conv Edge Cases ---")
 
         # Test empty graph (0 nodes)
-        empty_features = keras.ops.zeros((0, self.input_dim))
-        empty_edges = keras.ops.zeros((2, 0), dtype="int32")
+        empty_features = ops.zeros((0, self.input_dim))
+        empty_edges = ops.zeros((2, 0), dtype="int32")
 
-        # pyrefly: ignore # implicitly-determined-attribute
-        gat = GATv2Conv(
-            output_dim=self.output_dim, heads=2, concat=True
-        )  # pyrefly: ignore  # not-callable
+        gat = GATv2Conv(output_dim=self.output_dim, heads=2, concat=True)
         output = gat([empty_features, empty_edges])
 
         expected_shape = (0, self.output_dim * 2)
         self.assertEqual(
-            self._extract_numpy_output(output).shape,
+            tuple(output.shape),
             expected_shape,
             "Empty graph should produce correct shape",
         )
 
         # Test single node graph with no edges
-        single_node_features = keras.ops.ones((1, self.input_dim))
-        no_edges = keras.ops.zeros((2, 0), dtype="int32")
+        single_node_features = ops.ones((1, self.input_dim))
+        no_edges = ops.zeros((2, 0), dtype="int32")
 
-        gat = GATv2Conv(  # pyrefly: ignore  # not-callable
+        gat = GATv2Conv(
             output_dim=self.output_dim, heads=2, concat=False, add_self_loops=True
         )
         output = gat([single_node_features, no_edges])
 
         expected_shape = (1, self.output_dim)
         self.assertEqual(
-            self._extract_numpy_output(output).shape,
+            tuple(output.shape),
             expected_shape,
             "Single node graph should produce correct shape",
         )
 
         # Test graph with only self-loops
-        features = keras.ops.ones((3, self.input_dim))
-        self_loop_edges = keras.ops.array([[0, 1, 2], [0, 1, 2]], dtype="int32")
-        # pyrefly: ignore # implicitly-determined-attribute
-        gat = GATv2Conv(
-            output_dim=self.output_dim, heads=1, concat=True
-        )  # pyrefly: ignore  # not-callable
+        features = ops.ones((3, self.input_dim))
+        self_loop_edges = ops.convert_to_tensor([[0, 1, 2], [0, 1, 2]], dtype="int32")
+
+        gat = GATv2Conv(output_dim=self.output_dim, heads=1, concat=True)
         output = gat([features, self_loop_edges])
 
         expected_shape = (3, self.output_dim)
         self.assertEqual(
-            self._extract_numpy_output(output).shape,
+            tuple(output.shape),
             expected_shape,
             "Self-loop only graph should produce correct shape",
+        )
+
+    def test_bipartite_graphs(self):
+        """Test GATv2Conv with bipartite graphs."""
+        print("\n--- Testing GATv2Conv with Bipartite Graphs ---")
+
+        # Create bipartite graph data
+        source_features = ops.ones((4, self.input_dim))
+        target_features = ops.ones((3, self.input_dim))
+
+        # Edges from source (0-3) to target (0-2)
+        bipartite_edges = ops.convert_to_tensor(
+            [[0, 1, 2, 3], [0, 1, 2, 0]], dtype="int32"
+        )
+
+        gat = GATv2Conv(
+            output_dim=self.output_dim,
+            heads=2,
+            concat=True,
+            add_self_loops=False,  # No self-loops for bipartite
+        )
+
+        # Test with bipartite input
+        output = gat.propagate(
+            x=(target_features, source_features), edge_index=bipartite_edges
+        )
+
+        expected_shape = (3, self.output_dim * 2)  # Target nodes, concatenated heads
+        self.assertEqual(
+            tuple(output.shape),
+            expected_shape,
+            "Bipartite graph should produce correct shape",
         )
 
 
@@ -331,13 +364,139 @@ class TestGATv2ConvSerialization(TestGATv2ConvBase):
         """Test get_config and from_config methods."""
         print("\n--- Testing GATv2Conv Config Serialization ---")
 
+
+@unittest.skipIf(
+    not TORCH_AVAILABLE or not PyGGATv2Conv,
+    "PyTorch or PyTorch Geometric GATv2Conv not available.",
+)
+@unittest.skipIf(
+    KERAS_BACKEND != "torch",
+    "Numerical comparison tests only run with PyTorch backend.",
+)
+class TestGATv2ConvNumericalComparison(TestGATv2ConvBase):
+    """Test GATv2Conv numerical output against PyTorch Geometric."""
+
+    def test_numerical_comparison_basic(self):
+        """Compare GATv2Conv output with PyTorch Geometric."""
+        print("\n--- Testing GATv2Conv Numerical Comparison ---")
+
+        # Define parameters
+        output_dim = 16
+        heads = 4
+        concat = True
+        negative_slope = 0.2
+        dropout = 0.0  # No dropout for numerical comparison
+
+        # Create Keras Geometric layer
+        kg_gat = GATv2Conv(
+            output_dim=output_dim,
+            heads=heads,
+            concat=concat,
+            negative_slope=negative_slope,
+            dropout=dropout,
+            use_bias=True,
+            add_self_loops=True,
+        )
+
+        # Create PyTorch Geometric layer
+        # PyG GATv2Conv expects (in_channels, out_channels)
+        pyg_gat = PyGGATv2Conv(
+            in_channels=self.input_dim,
+            out_channels=output_dim,
+            heads=heads,
+            concat=concat,
+            negative_slope=negative_slope,
+            dropout=dropout,
+            add_self_loops=True,
+            bias=True,
+        )
+
+        # Keras layer builds on first call
+        kg_output = kg_gat([self.features_keras, self.edge_index_keras], training=False)
+
+        # Perform a dummy forward pass on PyG layer to ensure weights are built
+        # Ensure dropout is off and gradients are disabled for this pass
+        pyg_gat.train(False)  # Set to evaluation mode
+        with torch.no_grad():
+            _ = pyg_gat(self.features_torch, self.edge_index_torch)
+
+        # Transfer weights from Keras to PyG
+        # Note: PyG uses separate lin_l and lin_r for target and source nodes
+        # while Keras uses a single linear_transform for both
+
+        # Get Keras weights
+        kg_kernel = kg_gat.linear_transform.kernel  # [input_dim, heads * output_dim]
+        kg_kernel_np = ops.convert_to_numpy(kg_kernel).astype(np.float32)
+
+        # PyG expects [heads * output_dim, input_dim] format
+        kg_kernel_transposed = kg_kernel_np.T
+
+        # For GATv2, both lin_l and lin_r should use the same transformation
+        # This matches the mathematical formulation where the same W is applied to both h_i and h_j
+        pyg_gat.lin_l.weight.data.copy_(torch.from_numpy(kg_kernel_transposed))
+        pyg_gat.lin_r.weight.data.copy_(torch.from_numpy(kg_kernel_transposed))
+
+        # Handle linear transformation bias
+        if kg_gat.linear_transform.bias is not None:
+            kg_bias = kg_gat.linear_transform.bias
+            kg_bias_np = ops.convert_to_numpy(kg_bias).astype(np.float32)
+            pyg_gat.lin_l.bias.data.copy_(torch.from_numpy(kg_bias_np))
+            pyg_gat.lin_r.bias.data.copy_(torch.from_numpy(kg_bias_np))
+        else:
+            # Zero out bias if Keras doesn't use bias in linear transform
+            pyg_gat.lin_l.bias.data.zero_()
+            pyg_gat.lin_r.bias.data.zero_()
+
+        # Transfer attention weights
+        kg_att = kg_gat.att  # [1, heads, output_dim]
+        kg_att_squeezed = ops.squeeze(kg_att, axis=0)  # [heads, output_dim]
+        kg_att_np = ops.convert_to_numpy(kg_att_squeezed).astype(np.float32)
+
+        # PyG att parameter should match this shape
+        pyg_gat.att.data.copy_(torch.from_numpy(kg_att_np))
+
+        # Handle final bias - this is where Keras and PyG might differ
+        if kg_gat.use_bias and kg_gat.bias is not None:
+            kg_final_bias = kg_gat.bias
+            kg_final_bias_np = ops.convert_to_numpy(kg_final_bias).astype(np.float32)
+            pyg_gat.bias.data.copy_(torch.from_numpy(kg_final_bias_np))
+        else:
+            # Zero out final bias if not used in Keras
+            pyg_gat.bias.data.zero_()
+
+        # Run PyTorch Geometric layer (ensure dropout is off for comparison)
+        with torch.no_grad():
+            pyg_output = pyg_gat(self.features_torch, self.edge_index_torch)
+
+        # Convert PyG output to numpy
+        pyg_output_np = pyg_output.detach().cpu().numpy()
+
+        # Convert Keras output to numpy
+        kg_output_np = self._extract_numpy_output(kg_output)
+
+        # Compare outputs numerically
+        # Use a tolerance for floating point comparisons
+        self.assertEqual(
+            kg_output_np.shape, pyg_output_np.shape, "Output shapes should match"
+        )
+
+        np.testing.assert_allclose(
+            kg_output_np,
+            pyg_output_np,
+            rtol=1e-4,  # Stricter tolerance
+            atol=1e-4,
+            err_msg="Numerical outputs do not match between Keras and PyG",
+        )
+
+        print("✓ Numerical outputs match between Keras and PyG")
+
         # Create layer with non-default parameters
         original_config = {
             "output_dim": self.output_dim + 1,
             "heads": 4,
             "concat": False,
             "negative_slope": 0.1,
-            "dropout": 0.0,  # Use 0.0 to avoid dropout issues in tests
+            "dropout": 0.0,
             "use_bias": False,
             "kernel_initializer": "he_normal",
             "bias_initializer": "ones",
@@ -346,7 +505,6 @@ class TestGATv2ConvSerialization(TestGATv2ConvBase):
             "name": "test_gatv2_config",
         }
 
-        # pyrefly: ignore  # not-callable
         gat1 = GATv2Conv(**original_config)
 
         # Build the layer
@@ -388,11 +546,7 @@ class TestGATv2ConvSerialization(TestGATv2ConvBase):
 
         # Test layer reconstruction
         try:
-            config_copy = config.copy()
-            # Remove aggregator to avoid conflicts in from_config
-            config_copy.pop("aggregator", None)
-            # pyrefly: ignore  # missing-attribute
-            gat2 = GATv2Conv.from_config(config_copy)
+            gat2 = GATv2Conv.from_config(config)
         except Exception as e:
             self.fail(f"GATv2Conv.from_config failed: {e}")
 
@@ -403,163 +557,57 @@ class TestGATv2ConvSerialization(TestGATv2ConvBase):
         self.assertEqual(gat1.negative_slope, gat2.negative_slope)
         self.assertEqual(gat1.dropout_rate, gat2.dropout_rate)
         self.assertEqual(gat1.use_bias, gat2.use_bias)
-        self.assertEqual(gat1.add_self_loops, gat2.add_self_loops)
+        self.assertEqual(gat1.add_self_loops_flag, gat2.add_self_loops_flag)
         self.assertEqual(gat1.name, gat2.name)
 
 
-@unittest.skipIf(not TORCH_AVAILABLE, "PyTorch or PyTorch Geometric not available")
-@unittest.skipIf(not KERAS_BACKEND_IS_TORCH, "Keras backend is not torch")
 @unittest.skipIf(not GATV2_AVAILABLE, "GATv2Conv layer could not be imported.")
-class TestGATv2ConvNumericalComparison(TestGATv2ConvBase):
-    """Test numerical comparison with PyTorch Geometric."""
+class TestGATv2ConvAttentionMechanism(TestGATv2ConvBase):
+    """Test GATv2Conv attention mechanism specifics."""
 
-    def _sync_layer_weights(self, keras_layer, pyg_layer, use_bias):
-        """Synchronize weights between Keras and PyG layers."""
-        # Get Keras weights
-        keras_lin_weights = keras_layer.linear_transform.get_weights()
-        keras_att_vec = (
-            keras_layer.att.numpy()
-        )  # Shape: [1, heads, 2*features_per_head]
-        keras_final_bias = (
-            keras_layer.bias.numpy() if keras_layer.bias is not None else None
+    def test_attention_computation(self):
+        """Test that attention is computed correctly."""
+        print("\n--- Testing GATv2Conv Attention Computation ---")
+
+        # Create a small graph where we can verify attention
+        features = ops.convert_to_tensor(
+            [[1.0] * self.input_dim, [0.0] * self.input_dim], dtype="float32"
+        )
+        edges = ops.convert_to_tensor([[0, 1], [1, 0]], dtype="int32")
+
+        gat = GATv2Conv(
+            output_dim=self.output_dim, heads=1, concat=True, add_self_loops=False
         )
 
-        # Get PyG parameters
-        pyg_params = dict(pyg_layer.named_parameters())
+        output = gat([features, edges])
 
-        # Sync linear layer weights
-        if use_bias and len(keras_lin_weights) == 2:
-            k_kernel, k_lin_bias = keras_lin_weights
-            # Sync linear bias if it exists
-            if "lin_l.bias" in pyg_params:
-                pyg_params["lin_l.bias"].data.copy_(torch.tensor(k_lin_bias))
-            if "lin_r.bias" in pyg_params:
-                pyg_params["lin_r.bias"].data.copy_(torch.tensor(k_lin_bias))
-        else:
-            k_kernel = keras_lin_weights[0]
+        # Verify output shape
+        self.assertEqual(tuple(output.shape), (2, self.output_dim))
 
-        # Sync kernel weights - PyG uses separate lin_l and lin_r
-        if "lin_l.weight" in pyg_params:
-            pyg_params["lin_l.weight"].data.copy_(torch.tensor(k_kernel.T))
-        if "lin_r.weight" in pyg_params:
-            pyg_params["lin_r.weight"].data.copy_(torch.tensor(k_kernel.T))
+        # Verify output is not all zeros or NaN
+        output_np = self._extract_numpy_output(output)
+        self.assertFalse(np.all(output_np == 0))
+        self.assertFalse(np.any(np.isnan(output_np)))
 
-        # Sync attention vector
-        # PyG's attention has shape [1, heads, out_channels] for GATv2
-        # Our Keras layer has shape [1, heads, 2*features_per_head]
-        # We need to reshape/adapt appropriately
-        if "att" in pyg_params:
-            # For GATv2Conv in PyG, att has shape [1, heads, out_channels]
-            # We'll use only the first half of our attention weights
-            # heads = keras_layer.heads
-            features_per_head = keras_layer.features_per_head
+    def test_multi_head_attention(self):
+        """Test multi-head attention mechanism."""
+        print("\n--- Testing Multi-Head Attention ---")
 
-            # Extract just the first out_channels dimensions from our 2*out_channels att vector
-            keras_att_for_pyg = keras_att_vec[
-                :, :, :features_per_head
-            ]  # [1, heads, out_channels]
-            pyg_params["att"].data.copy_(torch.tensor(keras_att_for_pyg))
+        for concat in [True, False]:
+            with self.subTest(concat=concat):
+                gat = GATv2Conv(output_dim=self.output_dim, heads=4, concat=concat)
 
-        # Sync final bias
-        if use_bias and keras_final_bias is not None and "bias" in pyg_params:
-            pyg_params["bias"].data.copy_(torch.tensor(keras_final_bias))
+                output = gat([self.features_keras, self.edge_index_keras])
 
-    def test_numerical_comparison_basic(self):
-        """Test numerical comparison for basic configurations."""
-        print("\n--- Testing Numerical Comparison vs PyG GATv2Conv ---")
+                if concat:
+                    expected_shape = (self.num_nodes, self.output_dim * 4)
+                else:
+                    expected_shape = (self.num_nodes, self.output_dim)
 
-        # Test with simpler parameter combinations for stability
-        test_configs = [
-            (1, True, True, True),  # Single head, concat, bias, self-loops
-            (2, False, True, True),  # Multi-head, average, bias, self-loops
-            (1, True, False, False),  # Single head, concat, no bias, no self-loops
-        ]
-
-        for heads, concat, use_bias, add_loops in test_configs:
-            subtest_msg = (
-                f"heads={heads}, concat={concat}, bias={use_bias}, loops={add_loops}"
-            )
-
-            with self.subTest(msg=subtest_msg):
-                print(f"\n--- Comparing: {subtest_msg} ---")
-
-                # Create Keras layer
-                # pyrefly: ignore  # not-callable
-                keras_gat = GATv2Conv(
-                    output_dim=self.output_dim,
-                    heads=heads,
-                    concat=concat,
-                    negative_slope=0.2,
-                    dropout=0.0,
-                    use_bias=use_bias,
-                    add_self_loops=add_loops,
-                )
-
-                # Build Keras layer
-                _ = keras_gat([self.features_keras, self.edge_index_keras])
-
-                # Create PyG layer
-                # pyrefly: ignore  # not-callable
-                pyg_gat = PyGGATv2Conv(
-                    in_channels=self.input_dim,
-                    out_channels=self.output_dim,
-                    heads=heads,
-                    concat=concat,
-                    negative_slope=0.2,
-                    dropout=0.0,
-                    add_self_loops=add_loops,
-                    bias=use_bias,
-                    share_weights=True,  # GATv2 typically shares weights
-                )
-
-                # Note: Weight synchronization is complex because PyG and our implementation
-                # use different attention mechanisms. We'll skip exact numerical comparison
-                # and just verify shapes and general behavior.
-
-                # Forward pass
-                keras_output = keras_gat([self.features_keras, self.edge_index_keras])
-                pyg_output = pyg_gat(self.features_torch, self.edge_index_torch)
-
-                # Compare outputs
-                keras_output_np = self._extract_numpy_output(keras_output)
-                pyg_output_np = pyg_output.cpu().detach().numpy()
-
-                # Verify shapes
-                expected_shape = self._get_expected_output_shape(heads, concat)
-                self.assertEqual(keras_output_np.shape, expected_shape)
-                self.assertEqual(pyg_output_np.shape, expected_shape)
-
-                print(f"✅ Shape test passed for: {subtest_msg}")
-                print(f"   Keras output shape: {keras_output_np.shape}")
-                print(f"   PyG output shape: {pyg_output_np.shape}")
-
-                # Basic sanity checks
-                # Check outputs are finite
-                self.assertTrue(
-                    np.all(np.isfinite(keras_output_np)),
-                    "Keras output contains non-finite values",
-                )
-                self.assertTrue(
-                    np.all(np.isfinite(pyg_output_np)),
-                    "PyG output contains non-finite values",
-                )
-
-                # Check outputs have reasonable magnitude
-                keras_norm = np.linalg.norm(keras_output_np)
-                pyg_norm = np.linalg.norm(pyg_output_np)
-
-                print(f"   Keras output norm: {keras_norm:.6f}")
-                print(f"   PyG output norm: {pyg_norm:.6f}")
-
-                # Note: Due to different attention implementations between our fixed version
-                # and PyG's GATv2Conv, exact numerical comparison is not expected to match.
-                # The important thing is that both produce valid outputs with correct shapes.
+                self.assertEqual(tuple(output.shape), expected_shape)
 
 
 # Test runner
 if __name__ == "__main__":
-    # Configure test verbosity and warnings
-
-    # Run tests with custom test loader if needed
-    # pyrefly: ignore  # not-callable
+    # pyrefly: ignore
     unittest.main(verbosity=2)
