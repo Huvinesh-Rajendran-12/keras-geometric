@@ -95,8 +95,12 @@ class GCNConv(MessagePassing):
         self.bias_constraint = constraints.get(bias_constraint)
 
         # Initialize weights (will be created in build)
-        self.kernel = None
-        self.bias = None
+        self.kernel = None  # pyrefly: ignore  # implicitly-defined-attribute
+        self.bias = None  # pyrefly: ignore  # implicitly-defined-attribute
+
+        # Store edge weights for the current forward pass
+        self._current_edge_weights = None
+        self._current_training = None
 
     def build(self, input_shape: Union[list, tuple]) -> None:
         """Build the layer weights.
@@ -201,83 +205,70 @@ class GCNConv(MessagePassing):
             return (batch_size, self.output_dim)
         return (None, self.output_dim)
 
-    def propagate(self, inputs: Union[list, tuple]) -> keras.KerasTensor:
+    def message(
+        self,
+        x_i: keras.KerasTensor,
+        x_j: keras.KerasTensor,
+        edge_attr: Optional[keras.KerasTensor] = None,
+        edge_index: Optional[keras.KerasTensor] = None,
+        size: Optional[tuple[int, int]] = None,
+        **kwargs: Any,
+    ) -> keras.KerasTensor:
         """
-        Propagate messages through the graph by executing the full message passing flow:
-        1. Extract node features and edge indices
-        2. Transform node features with kernel weights
-        3. Compute messages between connected nodes with edge weights
-        4. Aggregate messages for each target node
-        5. Apply bias and return updated features
+        Compute messages from source nodes to target nodes.
+        In GCN, the message is the transformed source node features weighted by edge weights.
 
         Args:
-            inputs: List containing [x, edge_index, edge_weight, training]
-                - x: Tensor of shape [N, F] containing node features
-                - edge_index: Tensor of shape [2, E] containing edge indices
-                - edge_weight: Tensor of shape [E] containing edge weights
-                - training: Optional boolean for training mode
+            x_i: Target node features of shape [E, F]
+            x_j: Source node features of shape [E, F]
+            edge_attr: Edge weights of shape [E] (used for GCN normalization)
+            edge_index: Edge indices tensor (not used in this method)
+            size: Graph size tuple (not used in this method)
+            **kwargs: Additional keyword arguments
 
         Returns:
-            Tensor of shape [N, output_dim] containing the updated node features
+            Messages of shape [E, output_dim]
         """
-        x, edge_index, edge_weight = inputs[0], inputs[1], inputs[2]
-        training = inputs[3] if len(inputs) > 3 else None
-
-        num_nodes = ops.shape(x)[0]
-
-        # Handle empty graph case
-        if num_nodes == 0:
-            return ops.zeros((0, self.output_dim), dtype=x.dtype)
-
-        # Check if there are any edges
-        num_edges = ops.shape(edge_index)[1] if len(ops.shape(edge_index)) > 1 else 0
-        if num_edges == 0:
-            # No edges case - just transform features and apply bias
-            x_transformed = ops.matmul(
-                x, self.kernel
-            )  # pyrefly: ignore  # implicitly-defined-attribute
-            if self.dropout_rate > 0 and training:
-                dropout_layer = layers.Dropout(self.dropout_rate)
-                x_transformed = dropout_layer(x_transformed, training=training)
-            if (
-                self.use_bias and self.bias is not None
-            ):  # pyrefly: ignore  # implicitly-defined-attribute
-                x_transformed = ops.add(
-                    x_transformed, self.bias
-                )  # pyrefly: ignore  # implicitly-defined-attribute
-            return x_transformed
-
-        # Transform features
-        x_transformed = ops.matmul(
-            x, self.kernel
+        # Transform source node features
+        x_j_transformed = ops.matmul(
+            x_j, self.kernel
         )  # pyrefly: ignore  # implicitly-defined-attribute
 
-        # Apply dropout to transformed features if training
-        if self.dropout_rate > 0 and training:
+        # Apply dropout if in training mode
+        if self.dropout_rate > 0 and self._current_training:
             dropout_layer = layers.Dropout(self.dropout_rate)
-            x_transformed = dropout_layer(x_transformed, training=training)
+            x_j_transformed = dropout_layer(
+                x_j_transformed, training=self._current_training
+            )
 
-        # Extract source and target indices
-        source_idx = edge_index[0]
-        target_idx = edge_index[1]
+        # Weight messages by edge weights (GCN normalization)
+        if edge_attr is not None:
+            messages = x_j_transformed * ops.expand_dims(edge_attr, axis=1)
+        else:
+            messages = x_j_transformed
 
-        # Gather source features
-        source_features = ops.take(x_transformed, source_idx, axis=0)
+        return messages
 
-        # Compute messages (features weighted by edge weights)
-        messages = source_features * ops.expand_dims(edge_weight, axis=1)
+    def update(
+        self, aggregated: keras.KerasTensor, x: Optional[keras.KerasTensor] = None
+    ) -> keras.KerasTensor:
+        """
+        Update node features after aggregation.
+        In GCN, this simply adds the bias term if enabled.
 
-        # Aggregate messages
-        aggregated = self.aggregate(messages, target_idx, num_nodes=num_nodes)
+        Args:
+            aggregated: Aggregated messages of shape [N, output_dim]
+            x: Original node features (not used in GCN)
 
-        # Apply bias
+        Returns:
+            Updated node features of shape [N, output_dim]
+        """
         if (
             self.use_bias and self.bias is not None
         ):  # pyrefly: ignore  # implicitly-defined-attribute
-            aggregated = ops.add(
+            return ops.add(
                 aggregated, self.bias
             )  # pyrefly: ignore  # implicitly-defined-attribute
-
         return aggregated
 
     def call(
@@ -328,19 +319,46 @@ class GCNConv(MessagePassing):
         # Get number of nodes
         num_nodes = ops.shape(x)[0]
 
+        # Handle empty graph case
+        if num_nodes == 0:
+            return ops.zeros((0, self.output_dim), dtype=x.dtype)
+
         # Add self-loops if specified
         if self.add_self_loops:
             edge_index = add_self_loops(edge_index, num_nodes)
+
+        # Check if there are any edges
+        num_edges = ops.shape(edge_index)[1]
+        if num_edges == 0:
+            # No edges case - just transform features and apply bias
+            x_transformed = ops.matmul(
+                x, self.kernel
+            )  # pyrefly: ignore  # implicitly-defined-attribute
+            if self.dropout_rate > 0 and training:
+                dropout_layer = layers.Dropout(self.dropout_rate)
+                x_transformed = dropout_layer(x_transformed, training=training)
+            if (
+                self.use_bias and self.bias is not None
+            ):  # pyrefly: ignore  # implicitly-defined-attribute
+                x_transformed = ops.add(
+                    x_transformed, self.bias
+                )  # pyrefly: ignore  # implicitly-defined-attribute
+            return x_transformed
 
         # Compute edge weights (normalization coefficients)
         if self.normalize:
             edge_weight = compute_gcn_normalization(edge_index, num_nodes)
         else:
-            num_edges = ops.shape(edge_index)[1]
             edge_weight = ops.ones((num_edges,), dtype=self.compute_dtype)
 
-        # Perform propagation
-        output = self.propagate([x, edge_index, edge_weight, training])
+        # Store edge weights and training mode for use in message function
+        self._current_edge_weights = edge_weight
+        self._current_training = training
+
+        # Use the base class propagate method with edge weights as edge_attr
+        output = super().propagate(
+            x=x, edge_index=edge_index, edge_attr=edge_weight, training=training
+        )
 
         return output
 
