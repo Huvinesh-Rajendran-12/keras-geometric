@@ -95,7 +95,7 @@ class SAGEConv(MessagePassing):
         **kwargs: Any,
     ) -> None:
         # Validate aggregator
-        valid_aggregators = ["mean", "max", "sum", "pooling"]
+        valid_aggregators = ["mean", "max", "sum", "min", "std"]
         if aggregator not in valid_aggregators:
             raise ValueError(
                 f"Invalid aggregator '{aggregator}'. Must be one of {valid_aggregators}"
@@ -299,12 +299,7 @@ class SAGEConv(MessagePassing):
         # Handle empty edge case
         if ops.shape(edge_index)[1] == 0:
             feature_dim = ops.shape(x)[1]
-            if self.aggregator == "pooling" and self.pool_mlp is not None:
-                # For pooling, output dimension is pool_hidden_dim
-                pool_dim = self.pool_hidden_dim or feature_dim
-                return ops.zeros((num_nodes, pool_dim), dtype=x.dtype)
-            else:
-                return ops.zeros((num_nodes, feature_dim), dtype=x.dtype)
+            return ops.zeros((num_nodes, feature_dim), dtype=x.dtype)
         # Use message passing paradigm properly
         source_node_idx = edge_index[0]
         target_node_idx = edge_index[1]

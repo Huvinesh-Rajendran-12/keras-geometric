@@ -38,7 +38,7 @@ class MessagePassing(layers.Layer):
         self._cached_edge_idx_hash: int | None = None
 
         # Additional kwargs that can be passed to message function
-        self.message_kwargs: dict[str, any] = {}
+        self.message_kwargs: dict[str, Any] = {}
 
     def message(
         self,

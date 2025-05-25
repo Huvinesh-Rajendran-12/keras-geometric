@@ -97,8 +97,7 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
         self.num_nodes = 7
         self.input_dim = 10
         self.output_dim = 15
-        # --- Add 'pooling' back ---
-        self.aggregation_options = ["mean", "max", "sum", "pooling"]
+        self.aggregation_options = ["mean", "max", "sum", "min", "std"]
         self.bias_options = [True, False]
         self.normalize_options = [True, False]
         self.activation_options = ["relu", "tanh", None]
@@ -148,10 +147,9 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
             use_bias,
             activation,
             root_weight,
-            pool_activation,
         ) in test_params:
-            # pool_activation only relevant if aggr='pooling'
-            pool_act_param = pool_activation if aggr == "pooling" else None
+            # pool_activation not used anymore since pooling aggregator is removed
+            pool_act_param = None
             subtest_msg = f"aggr={aggr}, norm={normalize}, bias={use_bias}, act={activation}, root={root_weight}, pool_act={pool_act_param}"
             with self.subTest(msg=subtest_msg):
                 layer = SAGEConv(
@@ -169,10 +167,7 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
                 self.assertEqual(layer.use_bias, use_bias)
                 self.assertEqual(layer.root_weight, root_weight)
                 self.assertEqual(layer.activation, activations.get(activation))
-                if aggr == "pooling":
-                    self.assertEqual(
-                        layer.pool_activation, activations.get(pool_act_param)
-                    )
+                # pool_activation check removed since pooling aggregator is no longer supported
                 # No need to check base class aggregator anymore - SAGEConv stores its own aggregator
 
         # Test invalid aggregation
@@ -228,12 +223,12 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
     def test_config_serialization(self):
         """Test layer get_config and from_config methods."""
         print("\n--- Testing GraphSAGEConv Config Serialization ---")
-        # Test with pooling aggregator and non-defaults
+        # Test with mean aggregator and non-defaults
         # pyrefly: ignore  # no-matching-overload
         layer1_config_params = dict(
             output_dim=self.output_dim + 1,
             # pyrefly: ignore  # bad-argument-type
-            aggregator="pooling",
+            aggregator="mean",
             normalize=True,
             root_weight=False,
             use_bias=False,
@@ -434,11 +429,11 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
                     print("   Keras sample:", keras_output_np[0, :5])
                     print("   PyG sample:", pyg_output_np[0, :5])
 
-    def test_pooling_numerical_values(self):
-        """Compare pooling aggregator output against manual NumPy calculation."""
-        print("\n--- Testing GraphSAGEConv Numerical Values (Pooling Aggregator) ---")
+    def test_mean_numerical_values(self):
+        """Compare mean aggregator output against manual NumPy calculation."""
+        print("\n--- Testing GraphSAGEConv Numerical Values (Mean Aggregator) ---")
 
-        aggr = "pooling"
+        aggr = "mean"
         # Test only with bias=True for simplicity, can expand if needed
         use_bias = True
         root_weight = True  # Test standard case
@@ -456,7 +451,7 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
             use_bias=use_bias,
             activation=activation,
             root_weight=root_weight,
-            pool_activation="relu",  # Match pool_activation_fn below
+            pool_activation="relu",  # Not used for mean aggregation
         )
         keras_output = layer([self.features_keras, self.edge_index_keras])
         # Handle both PyTorch and TensorFlow tensors
@@ -474,32 +469,23 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
         num_nodes = self.num_nodes
         in_channels = self.input_dim
 
-        # 1. Manual Aggregation (Pooling)
+        # 1. Manual Aggregation (Mean)
         adj = defaultdict(list)
         sources, targets = edge_index_np[0], edge_index_np[1]
         for src, tgt in zip(sources, targets):
             adj[tgt].append(src)
 
         aggregated_np = np.zeros((num_nodes, in_channels), dtype=np.float32)
-        # Get weights for pool_mlp
-        pool_mlp_weights = layer.pool_mlp.get_weights()
-        pool_w = pool_mlp_weights[0]
-        pool_b = (
-            pool_mlp_weights[1] if use_bias else np.zeros(in_channels, dtype=np.float32)
-        )
 
         for i in range(num_nodes):
             # pyrefly: ignore  # bad-argument-type
             neighbors_indices = adj[i]
             if not neighbors_indices:
-                aggregated_np[i, :] = 0.0  # Max of empty set replaced by 0 in layer
+                aggregated_np[i, :] = 0.0  # Mean of empty set is 0
                 continue
             neighbor_features = x_np[neighbors_indices]
-            # Apply MLP + Activation
-            transformed_neighbors = np.dot(neighbor_features, pool_w) + pool_b
-            activated_neighbors = np.maximum(0, transformed_neighbors)  # Manual ReLU
-            # Max pooling
-            aggregated_np[i, :] = np.max(activated_neighbors, axis=0)
+            # Mean aggregation
+            aggregated_np[i, :] = np.mean(neighbor_features, axis=0)
 
         # 2. Transform self and aggregated features
         lin_self_weights = layer.lin_self.get_weights()
@@ -537,11 +523,11 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
                 expected_output_np,
                 rtol=1e-5,
                 atol=1e-5,
-                err_msg=f"Pooling numerical values differ for {subtest_msg}",
+                err_msg=f"Mean numerical values differ for {subtest_msg}",
             )
-            print(f"✅ Pooling numerical values match for: {subtest_msg}")
+            print(f"✅ Mean numerical values match for: {subtest_msg}")
         except AssertionError as e:
-            print(f"❌ Pooling numerical values DO NOT match for: {subtest_msg}")
+            print(f"❌ Mean numerical values DO NOT match for: {subtest_msg}")
             print(e)
             abs_diff = np.abs(keras_output_np - expected_output_np)
             rel_diff = abs_diff / (np.abs(expected_output_np) + 1e-8)

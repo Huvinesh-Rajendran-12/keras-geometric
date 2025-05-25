@@ -1,7 +1,8 @@
-from typing import Any, Optional
+from typing import Any
 
 import keras
 from keras import initializers, layers, ops
+from keras.src.ops import KerasTensor
 
 from .message_passing import MessagePassing
 
@@ -16,20 +17,20 @@ class GINConv(MessagePassing):
     The layer performs: h' = MLP((1 + ε) * h + Σ_{j∈N(i)} h_j)
 
     Args:
-        output_dim (int): Dimensionality of the output features.
-        mlp_hidden (list[int], optional): List of hidden layer dimensions for the MLP.
+        output_dim: Dimensionality of the output features.
+        mlp_hidden: List of hidden layer dimensions for the MLP.
             Defaults to empty list (single linear layer).
-        aggregator (str, optional): Aggregation method. Defaults to 'sum'.
+        aggregator: Aggregation method. Defaults to 'sum'.
             Must be one of ['mean', 'max', 'sum'].
-        eps_init (float, optional): Initial value for the epsilon parameter. Defaults to 0.0.
-        train_eps (bool, optional): Whether epsilon is trainable. Defaults to False.
-        use_bias (bool, optional): Whether to use bias in dense layers. Defaults to True.
-        dropout (float, optional): Dropout rate for MLP layers. Defaults to 0.0.
-        kernel_initializer (str, optional): Initializer for kernel weights.
+        eps_init: Initial value for the epsilon parameter. Defaults to 0.0.
+        train_eps: Whether epsilon is trainable. Defaults to False.
+        use_bias: Whether to use bias in dense layers. Defaults to True.
+        dropout: Dropout rate for MLP layers. Defaults to 0.0.
+        kernel_initializer: Initializer for kernel weights.
             Defaults to 'glorot_uniform'.
-        bias_initializer (str, optional): Initializer for bias weights.
+        bias_initializer: Initializer for bias weights.
             Defaults to 'zeros'.
-        activation (str, optional): Activation function for hidden layers.
+        activation: Activation function for hidden layers.
             Defaults to 'relu'.
         **kwargs: Additional arguments passed to MessagePassing base class.
     """
@@ -37,7 +38,7 @@ class GINConv(MessagePassing):
     def __init__(
         self,
         output_dim: int,
-        mlp_hidden: Optional[list[int]] = None,
+        mlp_hidden: list[int] | None = None,
         aggregator: str = "sum",  # GIN typically uses sum aggregation
         eps_init: float = 0.0,
         train_eps: bool = False,
@@ -62,14 +63,15 @@ class GINConv(MessagePassing):
         self.activation = activation
 
         # Initialize attributes that will be defined in build
-        self.mlp = None
-        self.eps: float | None = None
-        self.dropout_layers = []
+        self.mlp = None  # pyrefly: ignore  # implicitly-defined-attribute
+        self.eps = None  # pyrefly: ignore  # implicitly-defined-attribute
 
         # Validate aggregator
-        assert (
-            self.aggregator in ["mean", "max", "sum"]
-        ), f"Invalid aggregator: {self.aggregator}. Must be one of ['mean', 'max', 'sum']"
+        if self.aggregator not in ["mean", "max", "sum"]:
+            raise ValueError(
+                f"Invalid aggregator: {self.aggregator}. "
+                f"Must be one of ['mean', 'max', 'sum']"
+            )
 
     def build(self, input_shape: Any) -> None:
         """
@@ -79,7 +81,7 @@ class GINConv(MessagePassing):
             input_shape: Expected to be [(N, F), (2, E)] or similar shape information
         """
         # Extract input dimension from the first shape (node features)
-        if isinstance(input_shape, list) and len(input_shape) >= 1:
+        if isinstance(input_shape, (list, tuple)) and len(input_shape) >= 1:
             node_feature_shape = input_shape[0]
         else:
             # Handle case where input_shape might be a single shape
@@ -129,9 +131,7 @@ class GINConv(MessagePassing):
                 )
             )
             if self.dropout_rate > 0:
-                dropout_layer = layers.Dropout(self.dropout_rate)
-                mlp_layers.append(dropout_layer)
-                self.dropout_layers.append(dropout_layer)
+                mlp_layers.append(layers.Dropout(self.dropout_rate))
 
         # Add output layer (no activation on final layer)
         mlp_layers.append(
@@ -153,69 +153,170 @@ class GINConv(MessagePassing):
 
         super().build(input_shape)
 
-    def call(self, inputs: Any, training: Optional[bool] = None) -> Any:
+    def message(
+        self,
+        x_i: KerasTensor,
+        x_j: KerasTensor,
+        edge_attr: KerasTensor | None = None,
+        edge_index: KerasTensor | None = None,
+        size: tuple[int, int] | None = None,
+        **kwargs,
+    ) -> KerasTensor:
         """
-        Perform GIN convolution.
+        Compute messages from source node j to target node i.
+
+        For GIN, the message is simply the source node features x_j.
 
         Args:
-            inputs: List containing [features, edge_index]
-                - features: Node features tensor of shape [N, F]
-                - edge_index: Edge indices tensor of shape [2, E]
-            training: Boolean flag for training mode (affects dropout)
+            x_i: Tensor of shape [E, F] containing features of the target nodes.
+            x_j: Tensor of shape [E, F] containing features of the source nodes.
+            edge_attr: Optional tensor of shape [E, D] containing edge attributes.
+                Ignored in GIN as it doesn't use edge features.
+            edge_index: Optional tensor of shape [2, E] containing the edge indices.
+            size: Optional tuple (N_i, N_j) indicating the number of target and source nodes.
+            **kwargs: Additional arguments.
 
         Returns:
-            Output tensor of shape [N, output_dim]
+            Tensor of shape [E, F] containing the messages (source node features).
         """
-        # Extract inputs
-        if isinstance(inputs, (list, tuple)) and len(inputs) == 2:
-            x, edge_index = inputs
-        else:
-            raise ValueError(
-                f"Expected inputs to be [features, edge_index], got {inputs}"
-            )
+        # GIN message is simply the source node features
+        return x_j
 
-        # Get graph dimensions
-        num_nodes = ops.shape(x)[0]
-        num_edges = ops.shape(edge_index)[1]
+    def update(
+        self, aggregated: KerasTensor, x: KerasTensor | None = None
+    ) -> KerasTensor:
+        """
+        Update node features based on aggregated messages.
 
-        # Handle empty graph case
-        if num_nodes == 0:
-            return ops.zeros((0, self.output_dim), dtype=x.dtype)
+        Implements the GIN update: h' = MLP((1 + ε) * h + aggregated)
 
-        # Ensure edge_index is int32
-        edge_index = ops.cast(edge_index, dtype="int32")
+        Args:
+            aggregated: Tensor of shape [N, F] containing the aggregated messages.
+            x: Tensor of shape [N, F] containing the original node features.
 
-        # Aggregate neighbor features
-        if num_edges > 0:
-            aggr_out = self.propagate(x=x, edge_index=edge_index)
-        else:
-            # No edges - aggregation returns zeros
-            aggr_out = ops.zeros_like(x)
+        Returns:
+            Tensor of shape [N, output_dim] containing the updated node features.
+        """
+        if x is None:
+            raise ValueError("Original node features x are required for GIN update")
+
+        if self.mlp is None:
+            raise RuntimeError("MLP not initialized. Call build() first.")
 
         # GIN update: (1 + eps) * x + aggregation
         if self.train_eps:
             # Use learnable epsilon
-            h = (1 + self.eps) * x + aggr_out
+            h = (1 + self.eps) * x + aggregated
         else:
             # Use fixed epsilon
-            h = (1 + self.eps_init) * x + aggr_out
+            h = (1 + self.eps_init) * x + aggregated
 
         # Apply MLP
-        if self.mlp is None:
-            raise RuntimeError("MLP not initialized. Call build() first.")
+        return self.mlp(h)
 
-        output = self.mlp(h, training=training)
+    def call(
+        self,
+        inputs: list[KerasTensor] | tuple[KerasTensor, ...],
+        edge_attr: KerasTensor | None = None,
+        training: bool | None = None,
+    ) -> KerasTensor:
+        """
+        Forward pass for the GIN layer.
 
-        return output
+        Args:
+            inputs: List containing [x, edge_index].
+                - x: Node features tensor of shape [N, F]
+                - edge_index: Edge indices tensor of shape [2, E]
+            edge_attr: Optional edge attributes (ignored in GIN).
+            training: Whether the layer is in training mode.
+
+        Returns:
+            Output tensor of shape [N, output_dim].
+        """
+        # Parse inputs
+        if not isinstance(inputs, (list, tuple)):
+            raise ValueError(
+                "Inputs must be a list or tuple containing [x, edge_index]"
+            )
+
+        if len(inputs) < 2:
+            raise ValueError("Inputs must contain at least [x, edge_index]")
+
+        x = inputs[0]
+        edge_index = inputs[1]
+
+        # Handle empty graph case
+        num_nodes = ops.shape(x)[0]
+        if num_nodes == 0:
+            return ops.zeros((0, self.output_dim), dtype=x.dtype)
+
+        # Handle graph with nodes but no edges.
+        # The GIN update for a node i with no neighbors N(i) is:
+        # h'_i = MLP((1 + ε) * h_i + Σ_{j∈N(i)} h_j)
+        # If N(i) is empty, the sum is 0. So, h'_i = MLP((1 + ε) * h_i).
+        # We apply this simplified logic directly to maintain correct output dimension.
+        num_edges = ops.shape(edge_index)[1]
+        if num_edges == 0:
+            if self.train_eps:
+                # Use learnable epsilon
+                h = (1 + self.eps) * x
+            else:
+                # Use fixed epsilon
+                h = (1 + self.eps_init) * x
+            # Apply MLP to get the correct output dimension
+            return self.mlp(h, training=training)
+
+        # Cast edge_index to int32 and cache if needed
+        edge_index_hash = (
+            hash(edge_index.ref()) if hasattr(edge_index, "ref") else id(edge_index)
+        )
+        if (
+            self._cached_edge_idx is None
+            or self._cached_edge_idx_hash != edge_index_hash
+        ):
+            self._cached_edge_idx = ops.cast(edge_index, dtype="int32")
+            self._cached_edge_idx_hash = edge_index_hash
+
+        edge_index = self._cached_edge_idx
+
+        # Propagate through the message passing framework
+        return self.propagate(
+            x=x, edge_index=edge_index, edge_attr=edge_attr, training=training
+        )
+
+    def compute_output_shape(
+        self,
+        input_shape: list[tuple[int | None, ...]] | tuple[tuple[int | None, ...], ...],
+    ) -> tuple[int | None, ...]:
+        """
+        Compute the output shape of the layer.
+
+        Args:
+            input_shape: Shape(s) of input tensors.
+
+        Returns:
+            Output shape tuple.
+        """
+        if isinstance(input_shape, list):
+            x_shape = input_shape[0]
+        else:
+            x_shape = input_shape[0] if len(input_shape) > 0 else input_shape
+
+        # Output shape: (batch_size, output_dim)
+        return (x_shape[0], self.output_dim)
 
     def get_config(self) -> dict[str, Any]:
-        """Serialize the layer configuration."""
+        """
+        Returns the layer configuration for serialization.
+
+        Returns:
+            Dictionary containing the layer configuration.
+        """
         config = super().get_config()
         config.update(
             {
                 "output_dim": self.output_dim,
                 "mlp_hidden": self.mlp_hidden,
-                "aggregator": self.aggregator,
                 "eps_init": float(self.eps_init),
                 "train_eps": self.train_eps,
                 "use_bias": self.use_bias,
@@ -229,5 +330,13 @@ class GINConv(MessagePassing):
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "GINConv":
-        """Create a layer from its config."""
+        """
+        Creates a layer from its configuration.
+
+        Args:
+            config: Layer configuration dictionary.
+
+        Returns:
+            New layer instance.
+        """
         return cls(**config)
