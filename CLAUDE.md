@@ -77,13 +77,13 @@ Keras Geometric is a library built on Keras 3+ for geometric deep learning with 
 
 1. Install the package in development mode: `pip install -e ".[dev]"`
 2. Make code changes in the appropriate files
-3. Run tests to verify changes: `python -m pytest tests/`
+3. Run tests to verify changes: `uv run pytest tests/`
 4. Lint and format code: `ruff check .` and `ruff format .`
 5. Type check: `pyrefly check`
 6. Create a pull request with your changes
 
 ## Release Process
 
-1. Ensure all tests pass: `python -m pytest tests/`
+1. Ensure all tests pass: `uv run pytest tests/`
 2. Create a new release tag: `./scripts/create_release.sh X.Y.Z`
 3. The CI/CD pipeline will automatically build and deploy to PyPI when a new tag is detected
