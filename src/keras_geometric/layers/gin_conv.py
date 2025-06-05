@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional, Union
 
 import keras
 from keras import initializers, layers, ops
@@ -64,7 +64,17 @@ class GINConv(MessagePassing):
 
         # Initialize attributes that will be defined in build
         self.mlp = None  # pyrefly: ignore  # implicitly-defined-attribute
-        self.eps = None  # pyrefly: ignore  # implicitly-defined-attribute
+        self.eps: Union[float, keras.Variable, None] = (
+            None  # pyrefly: ignore  # implicitly-defined-attribute
+        )
+
+        # Cache for edge indices
+        self._cached_edge_idx: Optional[KerasTensor] = (
+            None  # pyrefly: ignore  # implicitly-defined-attribute
+        )
+        self._cached_edge_idx_hash: Optional[int] = (
+            None  # pyrefly: ignore  # implicitly-defined-attribute
+        )
 
         # Validate aggregator
         if self.aggregator not in ["mean", "max", "sum"]:
@@ -214,11 +224,12 @@ class GINConv(MessagePassing):
         # Apply MLP
         return self.mlp(h)
 
+    # pyrefly: ignore #not-callable
     def call(
         self,
-        inputs: list[KerasTensor] | tuple[KerasTensor, ...],
-        edge_attr: KerasTensor | None = None,
-        training: bool | None = None,
+        inputs: Union[list[KerasTensor], tuple[KerasTensor, ...]],
+        edge_attr: Optional[KerasTensor] = None,
+        training: Optional[bool] = None,
     ) -> KerasTensor:
         """
         Forward pass for the GIN layer.
@@ -264,11 +275,15 @@ class GINConv(MessagePassing):
                 # Use fixed epsilon
                 h = (1 + self.eps_init) * x
             # Apply MLP to get the correct output dimension
-            return self.mlp(h, training=training)
+            if self.mlp is None:
+                raise RuntimeError("MLP not initialized. This indicates a build issue.")
+            return self.mlp(h, training=training)  # pyrefly: ignore #not-callable
 
         # Cast edge_index to int32 and cache if needed
         edge_index_hash = (
-            hash(edge_index.ref()) if hasattr(edge_index, "ref") else id(edge_index)
+            hash(edge_index.ref())
+            if hasattr(edge_index, "ref")
+            else id(edge_index)  # pyrefly: ignore #missing-attribute
         )
         if (
             self._cached_edge_idx is None
@@ -284,10 +299,11 @@ class GINConv(MessagePassing):
             x=x, edge_index=edge_index, edge_attr=edge_attr, training=training
         )
 
+    # pyrefly: ignore #bad-return
     def compute_output_shape(
         self,
-        input_shape: list[tuple[int | None, ...]] | tuple[tuple[int | None, ...], ...],
-    ) -> tuple[int | None, ...]:
+        input_shape: Union[list[tuple[int, ...]], tuple[tuple[int, ...], ...]],
+    ) -> tuple[Optional[int], ...]:
         """
         Compute the output shape of the layer.
 

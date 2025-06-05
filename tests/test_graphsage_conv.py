@@ -138,7 +138,6 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
                 self.bias_options,
                 self.activation_options,
                 self.root_weight_options,
-                self.pool_activation_options,
             )
         )
         for (

@@ -248,12 +248,21 @@ class SAGEConv(MessagePassing):
         return (None, self.output_dim)
 
     def message(
-        self, x_i: keras.KerasTensor, x_j: keras.KerasTensor, **kwargs: Any
+        self,
+        x_i: keras.KerasTensor,
+        x_j: keras.KerasTensor,
+        edge_attr: Optional[keras.KerasTensor] = None,
+        edge_index: Optional[keras.KerasTensor] = None,
+        size: Optional[tuple[int, int]] = None,
+        **kwargs: Any,
     ) -> keras.KerasTensor:
         """Compute messages for SAGEConv.
         Args:
             x_i: Target node features [E, F]
             x_j: Source node features [E, F]
+            edge_attr: Optional edge attributes (not used in SAGEConv)
+            edge_index: Optional edge indices tensor (not used in this method)
+            size: Optional graph size tuple (not used in this method)
             **kwargs: Additional arguments including 'training'
         Returns:
             Messages [E, F] or [E, pool_dim] for pooling
@@ -312,9 +321,10 @@ class SAGEConv(MessagePassing):
 
         return self.update(aggregated)
 
+    # pyrefly: ignore #bad-override
     def call(
         self,
-        inputs: Union[list[keras.KerasTensor], tuple[keras.KerasTensor]],
+        inputs: Union[list[keras.KerasTensor], tuple[keras.KerasTensor, ...]],
         training: Optional[bool] = None,
         mask: Optional[keras.KerasTensor] = None,
     ) -> keras.KerasTensor:

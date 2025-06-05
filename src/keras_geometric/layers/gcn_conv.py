@@ -100,7 +100,7 @@ class GCNConv(MessagePassing):
 
         # Store edge weights for the current forward pass
         self._current_edge_weights = None
-        self._current_training = None
+        self._current_training: Optional[bool] = None
 
     def build(self, input_shape: Union[list, tuple]) -> None:
         """Build the layer weights.
@@ -271,9 +271,10 @@ class GCNConv(MessagePassing):
             )  # pyrefly: ignore  # implicitly-defined-attribute
         return aggregated
 
+    # pyrefly: ignore #bad-override
     def call(
         self,
-        inputs: Union[list[keras.KerasTensor], tuple[keras.KerasTensor]],
+        inputs: Union[list[keras.KerasTensor], tuple[keras.KerasTensor, ...]],
         training: Optional[bool] = None,
         mask: Optional[keras.KerasTensor] = None,
     ) -> keras.KerasTensor:
