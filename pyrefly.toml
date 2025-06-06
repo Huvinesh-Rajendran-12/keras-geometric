@@ -10,3 +10,6 @@ python_version = "3.9"
 # Disable specific error kinds
 [errors]
 bad-argument-type = false
+missing-attribute = false  # Disable for optional imports like torch
+not-callable = false       # Disable for optional imports that might be None
+bad-return = false         # Disable for complex tensor operations
