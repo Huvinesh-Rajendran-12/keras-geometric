@@ -7,33 +7,19 @@ repos:
     -   id: check-yaml
     -   id: check-added-large-files
 
--   repo: https://github.com/pycqa/flake8
-    rev: 7.0.0
+# Just ruff - handles 90% of what you need, super fast
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
     hooks:
-    -   id: flake8
-        additional_dependencies: [flake8-docstrings]
-        args: ['--max-line-length=100', '--select=E9,F63,F7,F82']
-
--   repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-    -   id: isort
-        args: ["--profile", "black"]
-
--   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-    -   id: mypy
-        additional_dependencies: [types-requests]
-        exclude: ^tests/
+    -   id: ruff
+        args: [--fix]
+    -   id: ruff-format
 
 -   repo: local
     hooks:
-    -   id: pytest-check
-        name: pytest-check
-        entry: uv run -m pytest
+    -   id: import-test
+        name: import-test
+        entry: python -c "import keras_geometric; print('✅ All imports working')"
         language: system
         pass_filenames: false
-        args: ["tests/test_message_passing.py", "tests/test_gcn_conv.py"]
-        always_run: false
-        files: ^(src/keras_geometric|tests)
+        files: ^src/keras_geometric

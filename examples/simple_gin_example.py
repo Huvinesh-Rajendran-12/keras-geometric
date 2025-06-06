@@ -1,4 +1,3 @@
-import keras
 import numpy as np
 import tensorflow as tf
 
@@ -10,28 +9,31 @@ input_dim = 3
 output_dim = 2
 
 # Node features
-node_features = np.array([
-    [1.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0],
-    [0.0, 0.0, 1.0],
-    [1.0, 1.0, 0.0]
-], dtype=np.float32)
+node_features = np.array(
+    [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 1.0, 0.0]],
+    dtype=np.float32,
+)
 
 # Edge index (COO format)
-edge_index = np.array([
-    [0, 0, 1, 2, 3],  # Source nodes
-    [1, 2, 2, 3, 0]   # Target nodes
-], dtype=np.int32)
+edge_index = np.array(
+    [
+        [0, 0, 1, 2, 3],  # Source nodes
+        [1, 2, 2, 3, 0],  # Target nodes
+    ],
+    dtype=np.int32,
+)
 
 # Convert to tensors
+# pyrefly: ignore  # unexpected-keyword
 node_features_tensor = tf.convert_to_tensor(node_features, dtype=tf.float32)
+# pyrefly: ignore  # unexpected-keyword
 edge_index_tensor = tf.convert_to_tensor(edge_index, dtype=tf.int32)
 
 # Create a GIN layer
 gin_layer = GINConv(
     output_dim=output_dim,
     mlp_hidden=[8],  # Hidden layer size
-    aggregator='mean'
+    aggregator="mean",
 )
 
 # Apply the layer directly

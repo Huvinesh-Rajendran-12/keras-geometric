@@ -3,31 +3,27 @@
 from ._version import __version__
 
 # Layers
-from .layers.gatv2_conv import GATv2Conv
-from .layers.gcn_conv import GCNConv
-from .layers.gin_conv import GINConv
-from .layers.message_passing import MessagePassing
-from .layers.sage_conv import SAGEConv
-from .utils.data_utils import GraphData, batch_graphs
+from .layers import GATv2Conv, GCNConv, GINConv, MessagePassing, SAGEConv
 
 # Utilities
-from .utils.main import add_self_loops, compute_gcn_normalization
+from .utils import GraphData, add_self_loops, batch_graphs, compute_gcn_normalization
 
 # Datasets (when available)
 # Use more specific import checks to avoid silent failures
-dataset_imports_successful = True
-try:
-    from .datasets.citation import CiteSeer, PubMed
-except ImportError:
-    dataset_imports_successful = False
 
-try:
-    from .datasets.cora import CoraDataset
-except ImportError:
-    dataset_imports_successful = False
 
-# Define the base __all__ list that's always available
-base_all = [
+def get_dataset_classes():
+    try:
+        from .datasets.citation import CiteSeer, PubMed
+        from .datasets.cora import CoraDataset
+
+        return {"CiteSeer": CiteSeer, "PubMed": PubMed, "Cora": CoraDataset}
+    except ImportError as e:
+        raise ImportError(f"Dataset dependencies not available: {e}") from e
+
+
+# Define the __all__ list with all exported symbols
+__all__ = [
     "__version__",
     # Layers
     "GCNConv",
@@ -41,14 +37,3 @@ base_all = [
     "GraphData",
     "batch_graphs",
 ]
-
-# Add dataset imports if they succeeded
-if dataset_imports_successful:
-    __all__ = base_all + [
-        # Datasets
-        "CoraDataset",
-        "CiteSeer",
-        "PubMed",
-    ]
-else:
-    __all__ = base_all

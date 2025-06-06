@@ -1,0 +1,97 @@
+# Configuration for automatic labeling of pull requests
+# This file defines patterns to automatically label PRs based on changed files
+
+# Core library changes
+core:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/keras_geometric/layers/**/*'
+      - 'src/keras_geometric/message_passing.py'
+
+# Dataset related changes
+datasets:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/keras_geometric/datasets/**/*'
+
+# Testing changes
+tests:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'tests/**/*'
+
+# Documentation changes
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'README.md'
+      - 'docs/**/*'
+      - '**/*.md'
+
+# Configuration and build changes
+build:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'pyproject.toml'
+      - 'setup.py'
+      - 'setup.cfg'
+      - 'requirements*.txt'
+      - 'uv.lock'
+
+# CI/CD changes
+ci/cd:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**/*'
+      - 'scripts/**/*'
+
+# Dependencies
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'uv.lock'
+
+# Type checking and linting
+quality:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.ruff.toml'
+      - 'pyrefly.toml'
+      - '.pre-commit-config.yaml'
+
+# Examples and tutorials
+examples:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'examples/**/*'
+      - 'tutorials/**/*'
+
+# Performance related
+performance:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/benchmark*'
+      - '**/perf*'
+      - '**/optimization*'
+
+# Bug fixes (based on branch names)
+bug:
+  - head-branch:
+    - '^fix/'
+    - '^bugfix/'
+    - '^hotfix/'
+
+# New features
+enhancement:
+  - head-branch:
+    - '^feature/'
+    - '^feat/'
+    - '^add/'
+
+# Breaking changes
+breaking:
+  - head-branch:
+    - '^breaking/'
+    - '^major/'

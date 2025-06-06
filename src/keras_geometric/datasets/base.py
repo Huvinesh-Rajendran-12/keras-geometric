@@ -1,5 +1,6 @@
 import os
-from typing import Callable, List, Optional, Tuple
+import random
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -35,6 +36,7 @@ class Dataset:
         train_data, val_data, test_data = dataset.split()
         ```
     """
+
     def __init__(
         self,
         root: str,
@@ -47,8 +49,8 @@ class Dataset:
         self.transform = transform
         self.pre_transform = pre_transform
 
-        self._data_list = None
-        self._num_classes = None
+        self._data_list: Optional[list[GraphData]] = None
+        self._num_classes: Optional[int] = None
 
         self._process()
 
@@ -59,14 +61,18 @@ class Dataset:
 
         # Process or load processed data
         if self._is_processed():
-            self._data_list, self._num_classes = self._load_processed()
+            data_list, num_classes = self._load_processed()
+            self._data_list = data_list
+            self._num_classes = num_classes
         else:
             # Download raw data if needed
             if not self._is_raw_present():
                 self._download()
 
             # Process raw data
-            self._data_list, self._num_classes = self._process_raw()
+            data_list, num_classes = self._process_raw()
+            self._data_list = data_list
+            self._num_classes = num_classes
 
             # Save processed data
             self._save_processed()
@@ -91,11 +97,11 @@ class Dataset:
         """Directory for raw data."""
         return os.path.join(self.root, "raw")
 
-    def _download(self):
+    def _download(self) -> None:
         """Download the dataset. To be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement _download")
 
-    def _process_raw(self) -> Tuple[List[GraphData], int]:
+    def _process_raw(self) -> tuple[list[GraphData], int]:
         """
         Process raw data into GraphData objects.
 
@@ -120,6 +126,11 @@ class Dataset:
         # Prepare data for saving
         save_data = {}
 
+        # Ensure data_list is not None before processing
+        assert self._data_list is not None, (
+            "Data list is None, cannot save processed data."
+        )
+
         for i, graph_data in enumerate(self._data_list):
             # Convert GraphData to numpy arrays
             save_data[f"x_{i}"] = np.array(graph_data.x)
@@ -132,13 +143,15 @@ class Dataset:
                 save_data[f"y_{i}"] = np.array(graph_data.y)
 
         # Save metadata
-        save_data["num_graphs"] = len(self._data_list)
-        save_data["num_classes"] = self._num_classes
+        if self._data_list is not None:
+            save_data["num_graphs"] = len(self._data_list)
+        if self._num_classes is not None:
+            save_data["num_classes"] = self._num_classes
 
         # Save to file
         np.savez(self._processed_file_path(), **save_data)
 
-    def _load_processed(self) -> Tuple[List[GraphData], int]:
+    def _load_processed(self) -> tuple[list[GraphData], int]:
         """Load processed data from disk."""
         # Load data from file
         data = np.load(self._processed_file_path(), allow_pickle=True)
@@ -158,18 +171,13 @@ class Dataset:
             y = data[f"y_{i}"] if f"y_{i}" in data else None
 
             # Create GraphData object
-            graph_data = GraphData(
-                x=x,
-                edge_index=edge_index,
-                edge_attr=edge_attr,
-                y=y
-            )
+            graph_data = GraphData(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y)
 
             data_list.append(graph_data)
 
         return data_list, num_classes
 
-    def _load(self) -> Tuple[List[GraphData], int]:
+    def _load(self) -> tuple[list[GraphData], int]:
         """
         Load the dataset.
 
@@ -187,8 +195,8 @@ class Dataset:
         val_ratio: float = 0.1,
         test_ratio: float = 0.1,
         shuffle: bool = True,
-        seed: Optional[int] = None
-    ) -> Tuple[List[GraphData], List[GraphData], List[GraphData]]:
+        seed: Optional[int] = None,
+    ) -> tuple[list[GraphData], list[GraphData], list[GraphData]]:
         """
         Split the dataset into training, validation, and test sets.
 
@@ -204,18 +212,21 @@ class Dataset:
             val_data: List of GraphData objects for validation
             test_data: List of GraphData objects for testing
         """
-        assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-5, \
+        assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-5, (
             "The sum of train_ratio, val_ratio, and test_ratio must be 1"
+        )
 
         # Create a copy of the data list
-        data_list: List[GraphData] = self._data_list if self._data_list is not None else []
+        data_list: list[GraphData] = (
+            self._data_list if self._data_list is not None else []
+        )
         data_list = data_list.copy()
 
         # Shuffle data if needed
         if shuffle:
             if seed is not None:
-                np.random.seed(seed)
-            np.random.shuffle(data_list)
+                random.seed(seed)  # Use random.seed for random.shuffle
+            random.shuffle(data_list)
 
         # Calculate split indices
         n = len(data_list)

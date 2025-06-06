@@ -1,7 +1,7 @@
 import os
 import pickle
 import urllib.request
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -38,15 +38,23 @@ class CitationDataset(Dataset):
         ```
     """
 
+    # Dataset URLs and files
+    citeseer_url = (
+        "https://github.com/kimiyoung/planetoid/raw/master/data/ind.citeseer.{}.pkl"
+    )
+    pubmed_url = (
+        "https://github.com/kimiyoung/planetoid/raw/master/data/ind.pubmed.{}.pkl"
+    )
+    dataset_files = ["x", "y", "tx", "ty", "allx", "ally", "graph", "test.index"]
     available_datasets = {
-        'citeseer': {
-            'url': 'https://github.com/kimiyoung/planetoid/raw/master/data/ind.citeseer.{}.pkl',
-            'files': ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph', 'test.index'],
+        "citeseer": {
+            "url_template": citeseer_url,
+            "files": dataset_files,
         },
-        'pubmed': {
-            'url': 'https://github.com/kimiyoung/planetoid/raw/master/data/ind.pubmed.{}.pkl',
-            'files': ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph', 'test.index'],
-        }
+        "pubmed": {
+            "url_template": pubmed_url,
+            "files": dataset_files,
+        },
     }
 
     def __init__(
@@ -58,32 +66,42 @@ class CitationDataset(Dataset):
     ):
         # Validate dataset name
         if name.lower() not in self.available_datasets:
-            raise ValueError(f"Dataset {name} not available. Choose from {list(self.available_datasets.keys())}")
+            raise ValueError(
+                f"Dataset {name} not available. Choose from {list(self.available_datasets.keys())}"
+            )
 
-        self.dataset_info = self.available_datasets[name.lower()]
+        dataset_info = self.available_datasets[name.lower()]
+        self.dataset_info = {
+            "url_template": str(dataset_info["url_template"]),
+            "files": dataset_info["files"],
+        }
 
         super().__init__(root, name.lower(), transform, pre_transform)
 
-    def _download(self):
+    def _download(self) -> None:
         """Download the dataset files."""
         os.makedirs(self._raw_dir(), exist_ok=True)
 
         # Download each file
-        for file in self.dataset_info['files']:
+        for file in self.dataset_info["files"]:
             # Handle test.index specially, as it's not a pickle file
-            if file == 'test.index':
-                url = self.dataset_info['url'].format(file)
+            if file == "test.index":
+                template = str(self.dataset_info["url_template"])
+                url = template.replace("{}", file)
                 target_path = os.path.join(self._raw_dir(), f"ind.{self.name}.{file}")
             else:
-                url = self.dataset_info['url'].format(file)
-                target_path = os.path.join(self._raw_dir(), f"ind.{self.name}.{file}.pkl")
+                template = str(self.dataset_info["url_template"])
+                url = template.replace("{}", file)
+                target_path = os.path.join(
+                    self._raw_dir(), f"ind.{self.name}.{file}.pkl"
+                )
 
             # Download if file doesn't exist
             if not os.path.exists(target_path):
                 print(f"Downloading {url} to {target_path}")
                 urllib.request.urlretrieve(url, target_path)
 
-    def _load(self) -> Tuple[List[GraphData], int]:
+    def _load(self) -> tuple[list[GraphData], int]:
         """
         Load the citation dataset.
 
@@ -95,25 +113,25 @@ class CitationDataset(Dataset):
         raw_dir = self._raw_dir()
 
         # Load features and labels
-        with open(os.path.join(raw_dir, f"ind.{self.name}.x.pkl"), 'rb') as f:
-            x = pickle.load(f, encoding='latin1')
-        with open(os.path.join(raw_dir, f"ind.{self.name}.y.pkl"), 'rb') as f:
-            y = pickle.load(f, encoding='latin1')
-        with open(os.path.join(raw_dir, f"ind.{self.name}.tx.pkl"), 'rb') as f:
-            tx = pickle.load(f, encoding='latin1')
-        with open(os.path.join(raw_dir, f"ind.{self.name}.ty.pkl"), 'rb') as f:
-            ty = pickle.load(f, encoding='latin1')
-        with open(os.path.join(raw_dir, f"ind.{self.name}.allx.pkl"), 'rb') as f:
-            allx = pickle.load(f, encoding='latin1')
-        with open(os.path.join(raw_dir, f"ind.{self.name}.ally.pkl"), 'rb') as f:
-            ally = pickle.load(f, encoding='latin1')
+        with open(os.path.join(raw_dir, f"ind.{self.name}.x.pkl"), "rb") as f:
+            x = pickle.load(f, encoding="latin1")
+        with open(os.path.join(raw_dir, f"ind.{self.name}.y.pkl"), "rb") as f:
+            y = pickle.load(f, encoding="latin1")
+        with open(os.path.join(raw_dir, f"ind.{self.name}.tx.pkl"), "rb") as f:
+            tx = pickle.load(f, encoding="latin1")
+        with open(os.path.join(raw_dir, f"ind.{self.name}.ty.pkl"), "rb") as f:
+            ty = pickle.load(f, encoding="latin1")
+        with open(os.path.join(raw_dir, f"ind.{self.name}.allx.pkl"), "rb") as f:
+            allx = pickle.load(f, encoding="latin1")
+        with open(os.path.join(raw_dir, f"ind.{self.name}.ally.pkl"), "rb") as f:
+            ally = pickle.load(f, encoding="latin1")
 
         # Load graph structure
-        with open(os.path.join(raw_dir, f"ind.{self.name}.graph.pkl"), 'rb') as f:
-            graph_dict = pickle.load(f, encoding='latin1')
+        with open(os.path.join(raw_dir, f"ind.{self.name}.graph.pkl"), "rb") as f:
+            graph_dict = pickle.load(f, encoding="latin1")
 
         # Load test indices
-        with open(os.path.join(raw_dir, f"ind.{self.name}.test.index"), 'r') as f:
+        with open(os.path.join(raw_dir, f"ind.{self.name}.test.index")) as f:
             test_idx = [int(i) for i in f.read().split()]
 
         # Combine features and labels
@@ -137,7 +155,7 @@ class CitationDataset(Dataset):
         graph_data = GraphData(
             x=x,
             edge_index=edge_index,
-            y=np.argmax(y, axis=1)  # Convert one-hot to class indices
+            y=np.argmax(y, axis=1),  # Convert one-hot to class indices
         )
 
         # Number of classes
@@ -145,7 +163,9 @@ class CitationDataset(Dataset):
 
         return [graph_data], num_classes
 
-    def _convert_graph_dict_to_edge_index(self, graph_dict: Dict[int, List[int]]) -> np.ndarray:
+    def _convert_graph_dict_to_edge_index(
+        self, graph_dict: dict[int, list[int]]
+    ) -> np.ndarray:
         """
         Convert a graph dictionary to an edge index matrix.
 
@@ -168,7 +188,6 @@ class CitationDataset(Dataset):
         edge_index = np.array(edges, dtype=np.int64).T
 
         return edge_index
-
 
 
 class CiteSeer(CitationDataset):
@@ -199,6 +218,7 @@ class CiteSeer(CitationDataset):
         edge_index = graph.edge_index  # Shape [2, 9464]
         ```
     """
+
     def __init__(
         self,
         root: str = "data",
@@ -236,6 +256,7 @@ class PubMed(CitationDataset):
         edge_index = graph.edge_index  # Shape [2, 88676]
         ```
     """
+
     def __init__(
         self,
         root: str = "data",

@@ -1,17 +1,17 @@
 import os
 import tarfile
 import urllib.request
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Optional
 
 import numpy as np
 
 try:
     import scipy.sparse as sp
-except ImportError:
+except ImportError as err:
     raise ImportError(
         "scipy is required for loading the Cora dataset. "
         "You can install it with `pip install scipy`."
-    )
+    ) from err
 
 from ..utils.data_utils import GraphData
 from .base import Dataset
@@ -46,7 +46,7 @@ class CoraDataset(Dataset):
         ```
     """
 
-    url = 'https://linqs-data.soe.ucsc.edu/public/lbc/cora.tgz'
+    url = "https://linqs-data.soe.ucsc.edu/public/lbc/cora.tgz"
 
     def __init__(
         self,
@@ -56,7 +56,7 @@ class CoraDataset(Dataset):
     ):
         super().__init__(root, "cora", transform, pre_transform)
 
-    def _download(self):
+    def _download(self) -> None:
         """Download the dataset files."""
         os.makedirs(self._raw_dir(), exist_ok=True)
 
@@ -68,10 +68,10 @@ class CoraDataset(Dataset):
 
         # Extract files
         if not os.path.exists(os.path.join(self._raw_dir(), "cora")):
-            with tarfile.open(tgz_path, 'r:gz') as tar:
+            with tarfile.open(tgz_path, "r:gz") as tar:
                 tar.extractall(self._raw_dir())
 
-    def _load(self) -> Tuple[List[GraphData], int]:
+    def _load(self) -> tuple[list[GraphData], int]:
         """
         Load the Cora dataset.
 
@@ -97,22 +97,20 @@ class CoraDataset(Dataset):
         cites = np.genfromtxt(cites_path, dtype=np.dtype(str))
 
         # Convert citation IDs to indices
-        edge_list: List[List[int]] = []
+        edge_list: list[list[int]] = []
         for edge in cites:
             source_idx = id_mapping.get(edge[0])
             target_idx = id_mapping.get(edge[1])
             if source_idx is not None and target_idx is not None:
                 edge_list.append([source_idx, target_idx])
-                edge_list.append([target_idx, source_idx])  # Add reverse edge for undirected graph
+                edge_list.append(
+                    [target_idx, source_idx]
+                )  # Add reverse edge for undirected graph
 
         edge_index = np.array(edge_list, dtype=np.int64).T
 
         # Create GraphData object
-        graph_data = GraphData(
-            x=features,
-            edge_index=edge_index,
-            y=labels
-        )
+        graph_data = GraphData(x=features, edge_index=edge_index, y=labels)
 
         return [graph_data], len(np.unique(labels))
 
