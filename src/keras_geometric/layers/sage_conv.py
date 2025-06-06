@@ -3,6 +3,7 @@ from typing import Any, Optional, Union
 import keras
 from keras import activations, constraints, initializers, layers, ops, regularizers
 
+from keras_geometric.layers.aggregators import AggregatorFactory
 from keras_geometric.layers.message_passing import MessagePassing
 
 
@@ -94,15 +95,23 @@ class SAGEConv(MessagePassing):
         dropout_rate: float = 0.0,
         **kwargs: Any,
     ) -> None:
-        # Validate aggregator
-        valid_aggregators = ["mean", "max", "sum", "min", "std"]
+        # Validate aggregator (now includes pooling)
+        valid_aggregators = ["mean", "max", "sum", "min", "std", "pooling"]
         if aggregator not in valid_aggregators:
             raise ValueError(
                 f"Invalid aggregator '{aggregator}'. Must be one of {valid_aggregators}"
             )
 
-        # Pass aggregator directly to base class (now supports pooling)
-        super().__init__(aggregator=aggregator, **kwargs)
+        # For pooling aggregator, we'll set up the pooling MLP in build() and
+        # handle it specially. For others, pass directly to base class.
+        if aggregator == "pooling":
+            # Use mean aggregator in base class, we'll handle pooling manually
+            super().__init__(aggregator="mean", **kwargs)
+        else:
+            super().__init__(aggregator=aggregator, **kwargs)
+
+        # Store the actual aggregator name
+        self.actual_aggregator = aggregator
 
         # Store configuration
         self.output_dim = output_dim
@@ -172,7 +181,7 @@ class SAGEConv(MessagePassing):
             raise ValueError(f"Input dimension must be positive, got {input_dim}")
 
         # Build pooling MLP if needed
-        if self.aggregator == "pooling":
+        if self.actual_aggregator == "pooling":
             pool_dim = self.pool_hidden_dim or input_dim
             self.pool_mlp = layers.Dense(
                 units=pool_dim,
@@ -307,8 +316,15 @@ class SAGEConv(MessagePassing):
         """
         # Handle empty edge case
         if ops.shape(edge_index)[1] == 0:
-            feature_dim = ops.shape(x)[1]
+            if self.actual_aggregator == "pooling" and self.pool_mlp is not None:
+                # For pooling, return zeros with correct output dimension
+                dummy_input = ops.zeros((1, ops.shape(x)[1]), dtype=x.dtype)
+                dummy_output = self.pool_mlp(dummy_input)
+                feature_dim = ops.shape(dummy_output)[1]
+            else:
+                feature_dim = ops.shape(x)[1]
             return ops.zeros((num_nodes, feature_dim), dtype=x.dtype)
+
         # Use message passing paradigm properly
         source_node_idx = edge_index[0]
         target_node_idx = edge_index[1]
@@ -316,8 +332,18 @@ class SAGEConv(MessagePassing):
         x_i = ops.take(x, target_node_idx, axis=0)
         messages = self.message(x_i, x_j, training=training)
 
-        # Use base class aggregation (now supports pooling)
-        aggregated = super().aggregate(messages, target_node_idx, num_nodes=num_nodes)
+        # Handle pooling aggregator specially
+        if self.actual_aggregator == "pooling":
+            # Create pooling aggregator and use it
+            pooling_aggregator = AggregatorFactory.create_pooling(self.pool_mlp)
+            aggregated = pooling_aggregator.aggregate(
+                messages, target_node_idx, num_nodes
+            )
+        else:
+            # Use base class aggregation for other aggregators
+            aggregated = super().aggregate(
+                messages, target_node_idx, num_nodes=num_nodes
+            )
 
         return self.update(aggregated)
 
@@ -440,7 +466,7 @@ class SAGEConv(MessagePassing):
         )
         # Remove base aggregator as we store the actual aggregator
         config.pop("aggregator", None)
-        config["aggregator"] = self.aggregator
+        config["aggregator"] = self.actual_aggregator
         return config
 
     @classmethod
