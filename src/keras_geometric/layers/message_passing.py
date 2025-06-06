@@ -3,6 +3,8 @@ from typing import Any
 from keras import layers, ops
 from keras.src.ops import KerasTensor
 
+from .aggregators import Aggregator, AggregatorFactory
+
 
 class MessagePassing(layers.Layer):
     """
@@ -24,14 +26,16 @@ class MessagePassing(layers.Layer):
 
     def __init__(self, aggregator: str = "mean", **kwargs) -> None:
         super().__init__(**kwargs)
-        self.aggregator: str = aggregator
-        self.supported_aggregators: list[str] = ["mean", "max", "sum", "min", "std"]
+        self.aggregator_name: str = aggregator
 
-        if self.aggregator not in self.supported_aggregators:
-            raise ValueError(
-                f"Invalid aggregator: {self.aggregator}. "
-                f"Must be one of {self.supported_aggregators}"
-            )
+        # Create aggregator instance using factory
+        self._aggregator: Aggregator = AggregatorFactory.create(aggregator)
+
+        # Keep for backward compatibility
+        self.aggregator: str = aggregator
+        self.supported_aggregators: list[str] = (
+            AggregatorFactory.get_available_aggregators()
+        )
 
         # Cache for edge indices to avoid repeated casting
         self._cached_edge_idx: KerasTensor | None = None
@@ -94,103 +98,8 @@ class MessagePassing(layers.Layer):
         if dim_size is None:
             dim_size = num_nodes
 
-        # Handle empty edge case
-        if ops.shape(messages)[0] == 0:
-            feature_dim = ops.shape(messages)[1] if len(ops.shape(messages)) > 1 else 1
-            return ops.zeros((dim_size, feature_dim), dtype=messages.dtype)
-
-        target_idx = ops.cast(target_idx, dtype="int32")
-
-        if self.aggregator == "mean":
-            # Improved mean aggregation with better numerical stability
-            # Use scatter operations for better performance and stability
-
-            # Count the number of messages per node
-            ones = ops.ones((ops.shape(messages)[0], 1), dtype=messages.dtype)
-            degree = ops.segment_sum(
-                data=ones, segment_ids=target_idx, num_segments=dim_size
-            )
-
-            # Sum messages per node
-            aggregated_sum = ops.segment_sum(
-                data=messages, segment_ids=target_idx, num_segments=dim_size
-            )
-
-            # Compute mean with numerical stability
-            # Add small epsilon to avoid division by zero
-            epsilon = ops.convert_to_tensor(1e-8, dtype=degree.dtype)
-            degree = ops.maximum(degree, epsilon)
-
-            # Compute mean
-            aggregated_mean = aggregated_sum / degree
-
-            # For nodes with no incoming edges, the result should be zeros
-            # This is already handled by segment_sum returning zeros
-            return aggregated_mean
-
-        elif self.aggregator == "max":
-            aggr = ops.segment_max(
-                data=messages, segment_ids=target_idx, num_segments=dim_size
-            )
-            # Replace -inf values with zeros (for nodes with no incoming messages)
-            return ops.where(ops.isinf(aggr), ops.zeros_like(aggr), aggr)
-
-        elif self.aggregator == "sum":
-            return ops.segment_sum(
-                data=messages, segment_ids=target_idx, num_segments=dim_size
-            )
-
-        elif self.aggregator == "min":
-            negative_data = ops.negative(messages)
-            aggr = ops.segment_max(
-                data=negative_data, segment_ids=target_idx, num_segments=dim_size
-            )
-            aggr = ops.negative(aggr)
-            # Replace inf values with zeros (for nodes with no incoming messages)
-            return ops.where(ops.isinf(aggr), ops.zeros_like(aggr), aggr)
-
-        elif self.aggregator == "std":
-            # Compute standard deviation aggregation using Welford's algorithm for stability
-            # First, compute the mean
-            ones = ops.ones((ops.shape(messages)[0], 1), dtype=messages.dtype)
-            count = ops.segment_sum(
-                data=ones, segment_ids=target_idx, num_segments=dim_size
-            )
-
-            sum_messages = ops.segment_sum(
-                data=messages, segment_ids=target_idx, num_segments=dim_size
-            )
-
-            # Safe mean computation
-            epsilon = ops.convert_to_tensor(1e-8, dtype=count.dtype)
-            safe_count = ops.maximum(count, epsilon)
-            mean = sum_messages / safe_count
-
-            # Expand mean to match messages for each edge
-            mean_expanded = ops.take(mean, target_idx, axis=0)
-
-            # Compute squared differences - ensure both operands are tensors
-            messages_tensor = ops.convert_to_tensor(messages)
-            squared_diff = ops.square(messages_tensor - mean_expanded)
-
-            # Sum squared differences per node
-            sum_squared_diff = ops.segment_sum(
-                data=squared_diff, segment_ids=target_idx, num_segments=dim_size
-            )
-
-            # Compute variance (using N instead of N-1 for consistency)
-            variance = sum_squared_diff / safe_count
-
-            # Compute standard deviation with numerical stability
-            std_dev = ops.sqrt(ops.maximum(variance, ops.zeros_like(variance)))
-
-            # For nodes with single or no neighbors, std should be 0
-            std_dev = ops.where(count <= 1, ops.zeros_like(std_dev), std_dev)
-
-            return std_dev
-
-        else:
-            raise ValueError(f"Invalid aggregator: {self.aggregator}")
+        # Delegate to the aggregator strategy
+        return self._aggregator.aggregate(messages, target_idx, dim_size)
 
     def update(
         self, aggregated: KerasTensor, x: KerasTensor | None = None
