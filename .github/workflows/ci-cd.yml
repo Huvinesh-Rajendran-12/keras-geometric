@@ -159,7 +159,7 @@ jobs:
           source .venv/bin/activate
           # Install backend-specific dependencies
           if [ "${{ matrix.keras-backend }}" = "torch" ]; then
-            uv pip install torch>=2.0.0 torch-geometric>=2.5.0 torch-scatter
+            uv pip install torch>=2.0.0 torch-geometric>=2.5.0
           elif [ "${{ matrix.keras-backend }}" = "tensorflow" ]; then
             uv pip install tensorflow>=2.17
           elif [ "${{ matrix.keras-backend }}" = "jax" ]; then
