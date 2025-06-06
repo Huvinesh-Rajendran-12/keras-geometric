@@ -1,3 +1,4 @@
+# pyrefly: ignore-file
 import itertools
 import os
 import sys
@@ -50,14 +51,14 @@ except ImportError as e:
 # --- PyTorch Geometric Imports (Optional) ---
 TORCH_AVAILABLE = False
 PyGGATv2Conv = None
-torch = None
+torch = None  # pyrefly: ignore
 
 try:
-    import torch
-    from torch_geometric.nn import GATv2Conv as PyGGATv2Conv
+    import torch  # pyrefly: ignore
+    from torch_geometric.nn import GATv2Conv as PyGGATv2Conv  # pyrefly: ignore
 
     # Force CPU execution for consistent testing
-    torch.set_default_device("cpu")
+    torch.set_default_device("cpu")  # pyrefly: ignore
     print("Setting PyTorch default device to CPU.")
     TORCH_AVAILABLE = True
 except ImportError:
@@ -83,7 +84,7 @@ class TestGATv2ConvBase(unittest.TestCase):
         # Set random seeds for reproducibility
         np.random.seed(44)
         if TORCH_AVAILABLE:
-            torch.manual_seed(44)
+            torch.manual_seed(44)  # pyrefly: ignore
 
         # Generate test data
         self.features_np = np.random.randn(self.num_nodes, self.input_dim).astype(

@@ -281,9 +281,9 @@ class GINConv(MessagePassing):
 
         # Cast edge_index to int32 and cache if needed
         edge_index_hash = (
-            hash(edge_index.ref())
+            hash(edge_index.ref())  # pyrefly: ignore  # missing-attribute
             if hasattr(edge_index, "ref")
-            else id(edge_index)  # pyrefly: ignore #missing-attribute
+            else id(edge_index)
         )
         if (
             self._cached_edge_idx is None
@@ -319,7 +319,7 @@ class GINConv(MessagePassing):
             x_shape = input_shape[0] if len(input_shape) > 0 else input_shape
 
         # Output shape: (batch_size, output_dim)
-        return (x_shape[0], self.output_dim)
+        return (x_shape[0], self.output_dim)  # pyrefly: ignore  # bad-return
 
     def get_config(self) -> dict[str, Any]:
         """
