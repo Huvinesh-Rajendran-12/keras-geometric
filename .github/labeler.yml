@@ -2,66 +2,96 @@
 # This file defines patterns to automatically label PRs based on changed files
 
 # Core library changes
-"core":
-  - "src/keras_geometric/layers/**/*"
-  - "src/keras_geometric/message_passing.py"
+core:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/keras_geometric/layers/**/*'
+      - 'src/keras_geometric/message_passing.py'
 
 # Dataset related changes
-"datasets":
-  - "src/keras_geometric/datasets/**/*"
+datasets:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/keras_geometric/datasets/**/*'
 
 # Testing changes
-"tests":
-  - "tests/**/*"
+tests:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'tests/**/*'
 
 # Documentation changes
-"documentation":
-  - "README.md"
-  - "docs/**/*"
-  - "**/*.md"
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'README.md'
+      - 'docs/**/*'
+      - '**/*.md'
 
 # Configuration and build changes
-"build":
-  - "pyproject.toml"
-  - "setup.py"
-  - "setup.cfg"
-  - "requirements*.txt"
-  - "uv.lock"
+build:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'pyproject.toml'
+      - 'setup.py'
+      - 'setup.cfg'
+      - 'requirements*.txt'
+      - 'uv.lock'
 
 # CI/CD changes
-"ci/cd":
-  - ".github/**/*"
-  - "scripts/**/*"
+ci/cd:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**/*'
+      - 'scripts/**/*'
 
 # Dependencies
-"dependencies":
-  - "pyproject.toml"
-  - "requirements*.txt"
-  - "uv.lock"
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'uv.lock'
 
 # Type checking and linting
-"quality":
-  - ".ruff.toml"
-  - "pyrefly.toml"
-  - ".pre-commit-config.yaml"
+quality:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.ruff.toml'
+      - 'pyrefly.toml'
+      - '.pre-commit-config.yaml'
 
 # Examples and tutorials
-"examples":
-  - "examples/**/*"
-  - "tutorials/**/*"
+examples:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'examples/**/*'
+      - 'tutorials/**/*'
 
 # Performance related
-"performance":
-  - any: ["**/benchmark*", "**/perf*", "**/optimization*"]
+performance:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/benchmark*'
+      - '**/perf*'
+      - '**/optimization*'
 
-# Bug fixes (based on branch names or PR titles)
-"bug":
-  - head-branch: ["^fix/", "^bugfix/", "^hotfix/"]
+# Bug fixes (based on branch names)
+bug:
+  - head-branch:
+    - '^fix/'
+    - '^bugfix/'
+    - '^hotfix/'
 
 # New features
-"enhancement":
-  - head-branch: ["^feature/", "^feat/", "^add/"]
+enhancement:
+  - head-branch:
+    - '^feature/'
+    - '^feat/'
+    - '^add/'
 
 # Breaking changes
-"breaking":
-  - head-branch: ["^breaking/", "^major/"]
+breaking:
+  - head-branch:
+    - '^breaking/'
+    - '^major/'
