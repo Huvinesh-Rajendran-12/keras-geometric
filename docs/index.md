@@ -12,6 +12,13 @@ Keras Geometric provides modular building blocks to easily create and experiment
 - **Standard Graph Convolutions:** Ready-to-use implementations of popular graph convolution layers:
   - `GCNConv`: Graph Convolutional Network layer from Kipf & Welling (2017).
   - `GINConv`: Graph Isomorphism Network layer from Xu et al. (2019).
+  - `GATv2Conv`: Graph Attention Network v2 layer from Brody et al. (2021).
+  - `SAGEConv`: GraphSAGE layer from Hamilton et al. (2017).
+- **Graph Pooling Operations:** Essential pooling layers for graph-level tasks:
+  - `GlobalPooling`: Mean, max, and sum pooling for graph representations.
+  - `AttentionPooling`: Learnable attention-based pooling.
+  - `Set2Set`: Advanced LSTM-based attention pooling.
+  - `BatchGlobalPooling`: Efficient pooling for batched graphs.
 - **Seamless Keras Integration:** Designed as standard Keras layers, making them easy to integrate into `keras.Sequential` or functional API models.
 - **Backend Agnostic:** Leverages Keras 3, allowing compatibility with different backends like TensorFlow, PyTorch, and JAX.
 - **Dataset Handling:** Built-in support for common graph datasets and a flexible `GraphData` class for handling graph-structured data.

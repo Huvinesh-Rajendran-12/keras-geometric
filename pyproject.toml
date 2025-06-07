@@ -45,6 +45,7 @@ test = [
     "torch>=2.6.0",              # For numerical comparison tests
     "torch-geometric>=2.6.1",    # For numerical comparison tests
     "tensorflow>=2.17",          # For backend testing
+    "psutil>=5.9.0",             # For performance tests memory monitoring
     "keras-geometric[datasets]", # Include dataset deps for testing
 ]
 
@@ -134,3 +135,29 @@ known-first-party = ["keras_geometric"]
 
 [tool.pyright]
 venv = ".venv"
+
+# --- Pytest Configuration ---
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--strict-config",
+    "--disable-warnings"
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "performance: marks tests as performance tests",
+    "backend: marks tests as backend compatibility tests",
+    "unit: marks tests as unit tests",
+    "error_handling: marks tests as error handling tests",
+    "batch: marks tests as batch processing tests"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::FutureWarning",
+    "ignore::UserWarning:tensorflow.*"
+]

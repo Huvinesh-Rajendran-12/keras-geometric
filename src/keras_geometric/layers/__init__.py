@@ -14,6 +14,7 @@ from .gatv2_conv import GATv2Conv
 from .gcn_conv import GCNConv
 from .gin_conv import GINConv
 from .message_passing import MessagePassing
+from .pooling import AttentionPooling, BatchGlobalPooling, GlobalPooling, Set2Set
 from .sage_conv import SAGEConv
 
 __all__ = [
@@ -22,6 +23,11 @@ __all__ = [
     "GINConv",
     "GATv2Conv",
     "SAGEConv",
+    # Pooling layers
+    "GlobalPooling",
+    "BatchGlobalPooling",
+    "AttentionPooling",
+    "Set2Set",
     # Aggregators
     "Aggregator",
     "AggregatorFactory",
