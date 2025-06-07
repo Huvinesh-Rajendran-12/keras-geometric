@@ -24,7 +24,7 @@ pytestmark = [pytest.mark.performance, pytest.mark.slow]
 
 def get_memory_usage() -> float:
     """Get current memory usage in MB."""
-    process = psutil.Process(os.getpid())
+    process = psutil.Process(os.getpid())  # pyrefly: ignore  # missing-argument
     return process.memory_info().rss / 1024 / 1024
 
 
@@ -46,6 +46,12 @@ def create_large_graph(
 
 class TestLargeGraphPerformance:
     """Test performance with large graphs."""
+
+    def __init__(self):
+        """Initialize test class."""
+        self.initial_memory: float = (
+            0.0  # pyrefly: ignore  # implicitly-defined-attribute
+        )
 
     def setup_method(self):
         """Setup before each test."""
