@@ -103,9 +103,9 @@ class TestLargeGraphPerformance:
         assert not np.any(np.isnan(output.numpy()))
 
         # Performance assertions
-        assert (
-            forward_time < 5.0
-        ), f"Forward pass took {forward_time:.2f}s, should be < 5s"
+        assert forward_time < 5.0, (
+            f"Forward pass took {forward_time:.2f}s, should be < 5s"
+        )
 
         memory_used = get_memory_usage() - self.initial_memory
         assert memory_used < 2000, f"Memory usage {memory_used:.1f}MB too high"
@@ -137,9 +137,9 @@ class TestLargeGraphPerformance:
         assert not np.any(np.isnan(output.numpy()))
 
         # Performance assertions (attention is more expensive)
-        assert (
-            forward_time < 10.0
-        ), f"Forward pass took {forward_time:.2f}s, should be < 10s"
+        assert forward_time < 10.0, (
+            f"Forward pass took {forward_time:.2f}s, should be < 10s"
+        )
 
         memory_used = get_memory_usage() - self.initial_memory
         assert memory_used < 3000, f"Memory usage {memory_used:.1f}MB too high"
@@ -171,9 +171,9 @@ class TestLargeGraphPerformance:
         assert not np.any(np.isnan(output.numpy()))
 
         # Performance assertions
-        assert (
-            forward_time < 8.0
-        ), f"Forward pass took {forward_time:.2f}s, should be < 8s"
+        assert forward_time < 8.0, (
+            f"Forward pass took {forward_time:.2f}s, should be < 8s"
+        )
 
     def test_memory_scaling_by_nodes(self):
         """
@@ -321,9 +321,9 @@ class TestLargeGraphPerformance:
 
         # Performance assertion
         avg_time_per_graph = total_time / num_graphs
-        assert (
-            avg_time_per_graph < 1.0
-        ), f"Average time per graph: {avg_time_per_graph:.3f}s"
+        assert avg_time_per_graph < 1.0, (
+            f"Average time per graph: {avg_time_per_graph:.3f}s"
+        )
 
     def test_gradient_computation_large_graph(self):
         """
