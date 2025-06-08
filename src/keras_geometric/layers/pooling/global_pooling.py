@@ -64,7 +64,7 @@ class GlobalPooling(layers.Layer):
         self.pooling = pooling
 
     def call(
-        self, inputs: keras.KerasTensor, **kwargs
+        self, inputs, **kwargs
     ) -> keras.KerasTensor:  # pyrefly: ignore  # bad-override
         """
         Applies global pooling to node features to produce a graph-level representation.

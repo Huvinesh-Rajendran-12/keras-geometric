@@ -53,7 +53,7 @@ class TestErrorHandling:
         # Wrong edge index shape
         node_features = np.random.randn(10, 8).astype(np.float32)
 
-        with pytest.raises((ValueError, IndexError)):
+        with pytest.raises(ValueError, match=".*"):
             # Edge index should be (2, E) not (3, E)
             invalid_edges = np.random.randint(0, 10, size=(3, 20)).astype(np.int32)
             layer([node_features, invalid_edges])
@@ -90,7 +90,7 @@ class TestErrorHandling:
         )  # Node 15 doesn't exist
 
         # This may raise an error or handle gracefully depending on backend
-        with pytest.raises((ValueError, IndexError, Exception)):
+        with pytest.raises(ValueError, match=".*"):
             layer([node_features, invalid_edges])
 
     def test_negative_edge_indices(self):
