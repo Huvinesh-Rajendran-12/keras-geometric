@@ -180,52 +180,32 @@ class BatchGlobalPooling(layers.Layer):
 
         # Get the number of graphs in the batch
         num_graphs = ops.cast(ops.max(batch) + 1, dtype="int32")
-        num_features = ops.shape(node_features)[1]
 
-        # Initialize output tensor
-        if self.pooling == "max":
-            # For max pooling, initialize with negative infinity
-            output = ops.full(
-                (num_graphs, num_features), float("-inf"), dtype=node_features.dtype
-            )
+        # Use vectorized segment operations for efficient pooling
+        if self.pooling == "mean":
+            # Implement segment_mean using segment_sum and counts
+            pooled_sum = ops.segment_sum(node_features, batch, num_segments=num_graphs)
+
+            # Count nodes per segment
+            ones = ops.ones_like(batch, dtype=node_features.dtype)
+            segment_counts = ops.segment_sum(ones, batch, num_segments=num_graphs)
+
+            # Avoid division by zero for empty segments
+            segment_counts = ops.maximum(segment_counts, 1.0)
+
+            # Compute mean by dividing sum by count
+            pooled = pooled_sum / ops.expand_dims(segment_counts, axis=1)
+
+        elif self.pooling == "max":
+            pooled = ops.segment_max(node_features, batch, num_segments=num_graphs)
+
+        elif self.pooling == "sum":
+            pooled = ops.segment_sum(node_features, batch, num_segments=num_graphs)
+
         else:
-            # For mean and sum pooling, initialize with zeros
-            output = ops.zeros((num_graphs, num_features), dtype=node_features.dtype)
+            raise ValueError(f"Unknown pooling type: {self.pooling}")
 
-        # Perform pooling for each graph in the batch
-        output_list = []
-        for graph_id in range(num_graphs):
-            # Find nodes belonging to this graph
-            mask = ops.equal(batch, graph_id)
-
-            # Get indices where mask is True
-            indices = ops.where(mask)
-
-            # Gather features for this graph
-            if ops.shape(indices)[0] > 0:  # Check if graph has nodes
-                # ops.where returns [N, 1] shape, so squeeze to get [N]
-                node_indices = ops.reshape(indices, (-1,))
-                graph_nodes = ops.take(node_features, node_indices, axis=0)
-
-                # Apply pooling operation
-                if self.pooling == "mean":
-                    pooled = ops.mean(graph_nodes, axis=0)
-                elif self.pooling == "max":
-                    pooled = ops.max(graph_nodes, axis=0)
-                elif self.pooling == "sum":
-                    pooled = ops.sum(graph_nodes, axis=0)
-                else:
-                    raise ValueError(f"Unknown pooling type: {self.pooling}")
-            else:
-                # Empty graph - return zeros
-                pooled = ops.zeros((num_features,), dtype=node_features.dtype)
-
-            output_list.append(pooled)
-
-        # Stack results
-        output = ops.stack(output_list, axis=0)
-
-        return output
+        return pooled
 
     def compute_output_shape(
         self, input_shape: list[tuple[int, ...]] | tuple[tuple[int, ...], ...]
