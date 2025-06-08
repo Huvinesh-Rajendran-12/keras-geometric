@@ -90,7 +90,8 @@ class TestErrorHandling:
         )  # Node 15 doesn't exist
 
         # This may raise an error or handle gracefully depending on backend
-        with pytest.raises((ValueError, Exception)):
+        # Changed from (ValueError, Exception) to ValueError to address diagnostic related to tuple types
+        with pytest.raises(ValueError):
             layer([node_features, invalid_edges])
 
     def test_negative_edge_indices(self):
