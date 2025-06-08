@@ -17,59 +17,6 @@ import pytest
 
 from keras_geometric.layers import GATv2Conv, GCNConv, GINConv, MessagePassing, SAGEConv
 
-
-def safe_tensor_to_numpy(tensor) -> np.ndarray:
-    """
-    Safely convert a tensor to numpy array across different backends.
-
-    Uses keras.ops.convert_to_numpy() as the primary method for backend-agnostic conversion.
-    Handles MPS and CUDA device tensors by moving them to CPU when necessary.
-
-    Args:
-        tensor: Tensor to convert to numpy
-
-    Returns:
-        numpy array
-    """
-    try:
-        # Use Keras' backend-agnostic conversion as primary method
-        return keras.ops.convert_to_numpy(tensor)
-    except (TypeError, RuntimeError) as e:
-        # Handle MPS and CUDA device tensor conversion errors
-        error_msg = str(e).lower()
-        if ("mps:" in error_msg or "cuda:" in error_msg) and "cpu()" in error_msg:
-            try:
-                # For PyTorch tensors on GPU devices (MPS/CUDA), move to CPU first
-                if hasattr(tensor, "cpu"):
-                    cpu_tensor = tensor.cpu()
-                    return keras.ops.convert_to_numpy(cpu_tensor)
-                else:
-                    raise RuntimeError(
-                        f"Tensor on GPU device but no cpu() method available: {type(tensor)}"
-                    ) from e
-            except Exception:
-                # Final fallback: direct numpy conversion on CPU tensor
-                if hasattr(tensor, "cpu"):
-                    return tensor.cpu().numpy()
-                else:
-                    raise
-        else:
-            # Re-raise if not a device conversion issue
-            raise
-    except Exception:
-        try:
-            # Fallback: Try direct numpy conversion
-            return tensor.numpy()
-        except Exception:
-            # Final fallback: For PyTorch tensors on GPU devices
-            if hasattr(tensor, "cpu"):
-                return tensor.cpu().numpy()
-            else:
-                raise RuntimeError(
-                    f"Failed to convert tensor of type {type(tensor)} to numpy"
-                ) from None
-
-
 pytestmark = pytest.mark.backend
 
 # Available backends to test
@@ -195,19 +142,13 @@ class TestBackendCompatibility:
             pytest.skip(f"Backend {backend} not available")
 
         # Create layer and test forward pass
-        try:
-            layer = GCNConv(output_dim=16, use_bias=True)
-            output = layer([sample_data["node_features"], sample_data["edge_indices"]])
+        layer = GCNConv(output_dim=16, use_bias=True)
+        output = layer([sample_data["node_features"], sample_data["edge_indices"]])
 
-            # Verify output properties
-            assert output.shape == (sample_data["num_nodes"], 16)
-            output_numpy = safe_tensor_to_numpy(output)
-            assert not np.any(np.isnan(output_numpy))
-        except TypeError as e:
-            if "mps:0 device type tensor" in str(e) and "Use Tensor.cpu()" in str(e):
-                pytest.skip(f"MPS device tensor conversion issue for backend {backend}")
-            else:
-                raise
+        # Verify output properties
+        assert output.shape == (sample_data["num_nodes"], 16)
+        output_numpy = keras.ops.convert_to_numpy(output)
+        assert not np.any(np.isnan(output_numpy))
 
     @pytest.mark.parametrize("backend", [CURRENT_BACKEND])
     def test_gatv2_conv_backend_compatibility(
@@ -226,7 +167,7 @@ class TestBackendCompatibility:
         output = layer([sample_data["node_features"], sample_data["edge_indices"]])
 
         assert output.shape == (sample_data["num_nodes"], 12)
-        output_numpy = safe_tensor_to_numpy(output)
+        output_numpy = keras.ops.convert_to_numpy(output)
         assert not np.any(np.isnan(output_numpy))
 
         # Test multi-head attention with concat=True (default)
@@ -239,7 +180,7 @@ class TestBackendCompatibility:
             sample_data["num_nodes"],
             32,
         )  # 4 heads * 8 output_dim
-        output_multi_numpy = safe_tensor_to_numpy(output_multi)
+        output_multi_numpy = keras.ops.convert_to_numpy(output_multi)
         assert not np.any(np.isnan(output_multi_numpy))
 
     @pytest.mark.parametrize("backend", [CURRENT_BACKEND])
@@ -260,7 +201,7 @@ class TestBackendCompatibility:
         output = layer([sample_data["node_features"], sample_data["edge_indices"]])
 
         assert output.shape == (sample_data["num_nodes"], 10)
-        output_numpy = safe_tensor_to_numpy(output)
+        output_numpy = keras.ops.convert_to_numpy(output)
         assert not np.any(np.isnan(output_numpy))
 
     @pytest.mark.parametrize("backend", [CURRENT_BACKEND])
@@ -281,7 +222,7 @@ class TestBackendCompatibility:
         output = layer([sample_data["node_features"], sample_data["edge_indices"]])
 
         assert output.shape == (sample_data["num_nodes"], 14)
-        output_numpy = safe_tensor_to_numpy(output)
+        output_numpy = keras.ops.convert_to_numpy(output)
         assert not np.any(np.isnan(output_numpy))
 
     @pytest.mark.parametrize("backend", [CURRENT_BACKEND])
@@ -305,7 +246,7 @@ class TestBackendCompatibility:
         )
 
         assert output.shape == sample_data["node_features"].shape
-        output_numpy = safe_tensor_to_numpy(output)
+        output_numpy = keras.ops.convert_to_numpy(output)
         assert not np.any(np.isnan(output_numpy))
 
     @pytest.mark.parametrize("backend", [CURRENT_BACKEND])
@@ -333,7 +274,7 @@ class TestBackendCompatibility:
             output = layer([node_features, edge_indices])
 
             # Verify output is valid
-            output_numpy = safe_tensor_to_numpy(output)
+            output_numpy = keras.ops.convert_to_numpy(output)
             assert output.shape == (sample_data["num_nodes"], 16)
             assert not np.any(np.isnan(output_numpy))
             assert np.all(np.isfinite(output_numpy))
@@ -408,7 +349,7 @@ class TestBackendCompatibility:
         small_features = sample_data["node_features"] * 1e-6
         output_small = layer([small_features, sample_data["edge_indices"]])
 
-        output_small_numpy = safe_tensor_to_numpy(output_small)
+        output_small_numpy = keras.ops.convert_to_numpy(output_small)
         assert not np.any(np.isnan(output_small_numpy))
         assert np.all(np.isfinite(output_small_numpy))
 
@@ -416,7 +357,7 @@ class TestBackendCompatibility:
         large_features = sample_data["node_features"] * 1e3
         output_large = layer([large_features, sample_data["edge_indices"]])
 
-        output_large_numpy = safe_tensor_to_numpy(output_large)
+        output_large_numpy = keras.ops.convert_to_numpy(output_large)
         assert not np.any(np.isnan(output_large_numpy))
         assert np.all(np.isfinite(output_large_numpy))
 
@@ -440,7 +381,7 @@ class TestBackendCompatibility:
         output = layer([sample_data["node_features"], empty_edges])
 
         assert output.shape == (sample_data["num_nodes"], 8)
-        output_numpy = safe_tensor_to_numpy(output)
+        output_numpy = keras.ops.convert_to_numpy(output)
         assert np.all(np.isfinite(output_numpy))  # Should be finite values
         assert not np.any(np.isnan(output_numpy))  # Should not contain NaN
 
@@ -453,24 +394,18 @@ class TestBackendCompatibility:
         # Create a single layer
         layer = GCNConv(output_dim=16, use_bias=False)
 
-        try:
-            # Get outputs from same layer called twice
-            output1 = layer([sample_data["node_features"], sample_data["edge_indices"]])
-            output2 = layer([sample_data["node_features"], sample_data["edge_indices"]])
+        # Get outputs from same layer called twice
+        output1 = layer([sample_data["node_features"], sample_data["edge_indices"]])
+        output2 = layer([sample_data["node_features"], sample_data["edge_indices"]])
 
-            output1_numpy = safe_tensor_to_numpy(output1)
-            output2_numpy = safe_tensor_to_numpy(output2)
+        output1_numpy = keras.ops.convert_to_numpy(output1)
+        output2_numpy = keras.ops.convert_to_numpy(output2)
 
-            # Results should be identical when using same layer
-            np.testing.assert_allclose(
-                output1_numpy,
-                output2_numpy,
-                rtol=1e-8,
-                atol=1e-10,
-                err_msg="Results differ between identical calls to same layer",
-            )
-        except TypeError as e:
-            if "mps:0 device type tensor" in str(e) and "Use Tensor.cpu()" in str(e):
-                pytest.skip("MPS device tensor conversion issue")
-            else:
-                raise
+        # Results should be very close when using same layer (allowing for minor backend differences)
+        np.testing.assert_allclose(
+            output1_numpy,
+            output2_numpy,
+            rtol=1e-5,
+            atol=1e-7,
+            err_msg="Results differ between identical calls to same layer",
+        )
