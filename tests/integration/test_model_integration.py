@@ -332,4 +332,8 @@ class TestModelIntegration:
         model_from_config.set_weights(model.get_weights())
         pred_after = model_from_config(data["node_features"])
 
-        np.testing.assert_allclose(keras.ops.convert_to_numpy(pred_before), keras.ops.convert_to_numpy(pred_after), rtol=1e-6)
+        np.testing.assert_allclose(
+            keras.ops.convert_to_numpy(pred_before),
+            keras.ops.convert_to_numpy(pred_after),
+            rtol=1e-6,
+        )

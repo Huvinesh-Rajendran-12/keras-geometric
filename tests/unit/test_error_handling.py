@@ -83,12 +83,14 @@ class TestErrorHandling:
         Tests that GCNConv raises an error when edge indices reference nodes outside the valid range.
         """
         import keras
-        
+
         # Skip for PyTorch and JAX backends as they may not raise exceptions for out-of-bounds indices
         # This is a known behavior difference where these backends can return arbitrary values
         if keras.backend.backend() in ["torch", "jax"]:
-            pytest.skip(f"{keras.backend.backend()} backend may not raise exceptions for out-of-bounds indices")
-            
+            pytest.skip(
+                f"{keras.backend.backend()} backend may not raise exceptions for out-of-bounds indices"
+            )
+
         layer = GCNConv(output_dim=16)
 
         node_features = np.random.randn(10, 8).astype(np.float32)
@@ -267,7 +269,9 @@ class TestErrorHandling:
 
         output = layer([node_features, edge_indices])
         assert output.shape == (10, 16)
-        assert np.all(np.isfinite(keras.ops.convert_to_numpy(output)))  # Should remain finite
+        assert np.all(
+            np.isfinite(keras.ops.convert_to_numpy(output))
+        )  # Should remain finite
 
     def test_very_small_numbers(self):
         """

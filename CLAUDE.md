@@ -94,6 +94,10 @@ ALWAYS use `uv` for package management operations. Never use `pip` directly.
 - Update packages: `uv pip install --upgrade <package>`
 - Install project in dev mode: `uv pip install -e ".[dev]"`
 
+## Git Configuration
+- Remote repository: Always push to `github` remote
+- When pushing commits, use: `git push github <branch-name>`
+
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.

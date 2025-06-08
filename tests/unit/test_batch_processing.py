@@ -251,7 +251,9 @@ class TestBatchProcessing:
         # All outputs should be identical (same inputs, same weights)
         for i in range(1, len(outputs)):
             np.testing.assert_allclose(
-                keras.ops.convert_to_numpy(outputs[0]), keras.ops.convert_to_numpy(outputs[i]), rtol=1e-6
+                keras.ops.convert_to_numpy(outputs[0]),
+                keras.ops.convert_to_numpy(outputs[i]),
+                rtol=1e-6,
             )
 
     def test_different_aggregators_batch(self):
@@ -448,7 +450,9 @@ class TestBatchProcessing:
         for output in outputs:
             assert output.shape == (nodes_per_graph, output_dim)
             # Check softmax properties
-            assert np.allclose(np.sum(keras.ops.convert_to_numpy(output), axis=1), 1.0, atol=1e-6)
+            assert np.allclose(
+                np.sum(keras.ops.convert_to_numpy(output), axis=1), 1.0, atol=1e-6
+            )
 
     def test_gradient_consistency_batch(self):
         """
@@ -486,4 +490,8 @@ class TestBatchProcessing:
             outputs.append(output)
 
         # Outputs should be identical (same inputs, same weights)
-        np.testing.assert_allclose(keras.ops.convert_to_numpy(outputs[0]), keras.ops.convert_to_numpy(outputs[1]), rtol=1e-6)
+        np.testing.assert_allclose(
+            keras.ops.convert_to_numpy(outputs[0]),
+            keras.ops.convert_to_numpy(outputs[1]),
+            rtol=1e-6,
+        )

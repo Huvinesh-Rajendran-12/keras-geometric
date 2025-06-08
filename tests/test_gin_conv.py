@@ -616,7 +616,9 @@ class TestGINConvNumericalComparison(TestGINConvBase):
                     # Sync epsilon if trainable
                     if train_eps and hasattr(keras_gin, "eps"):
                         pyg_gin.eps.data.copy_(
-                            torch.tensor(keras.ops.convert_to_numpy(keras_gin.eps)).squeeze()
+                            torch.tensor(
+                                keras.ops.convert_to_numpy(keras_gin.eps)
+                            ).squeeze()
                         )
                 except Exception as e:
                     self.skipTest(f"Weight synchronization failed: {e}")
