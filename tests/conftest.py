@@ -6,6 +6,7 @@ Sets up consistent backend configuration and handles PyTree registration conflic
 
 import os
 import sys
+import warnings
 
 # Suppress TensorFlow warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -17,5 +18,8 @@ os.environ.setdefault("KERAS_BACKEND", "tensorflow")
 modules_to_clear = [name for name in sys.modules.keys() if name.startswith("keras")]
 for module in modules_to_clear:
     sys.modules.pop(module, None)
+
+# Suppress PyTree registration warnings
+warnings.filterwarnings("ignore", message=".*PyTree type.*already registered.*")
 
 # PyTree registration conflicts will be handled at test level
