@@ -35,7 +35,7 @@ if importlib.util.find_spec("jax") is not None:
 def switch_backend(backend_name: str) -> None:
     """
     Switches the active Keras backend and reloads Keras and keras_geometric modules to apply the change.
-    
+
     This function updates the KERAS_BACKEND environment variable, clears cached Keras and keras_geometric modules, and reloads Keras to ensure the new backend is used for subsequent operations.
     """
     # Set environment variable
@@ -66,7 +66,7 @@ class TestBackendCompatibility:
     def sample_data(self):
         """
         Generates reproducible sample graph data for testing GNN layers.
-        
+
         Returns:
             A dictionary containing node features, edge indices, number of nodes, and input feature dimension for a synthetic graph.
         """
@@ -95,7 +95,7 @@ class TestBackendCompatibility:
     ):
         """
         Verifies that the GCNConv layer produces correct, non-negative outputs across all supported Keras backends.
-        
+
         The test switches to the specified backend, applies the GCNConv layer to sample graph data, and asserts that the output shape is correct, contains no NaN values, and all values are non-negative due to the ReLU activation.
         """
         # Skip if backend not available
@@ -124,7 +124,7 @@ class TestBackendCompatibility:
     ):
         """
         Verifies that the GATv2Conv layer produces valid outputs with both single-head and multi-head attention across different Keras backends.
-        
+
         The test checks output shapes and ensures no NaN values are present for both configurations.
         """
         if backend not in AVAILABLE_BACKENDS:
@@ -155,7 +155,7 @@ class TestBackendCompatibility:
     ):
         """
         Tests the GINConv layer with various aggregators across different Keras backends.
-        
+
         Verifies that the GINConv layer produces outputs of the expected shape and contains no NaN values when using different aggregator types on the specified backend.
         """
         if backend not in AVAILABLE_BACKENDS:
@@ -177,7 +177,7 @@ class TestBackendCompatibility:
     ):
         """
         Tests the SAGEConv layer with various aggregators across different Keras backends.
-        
+
         Verifies that the SAGEConv layer produces outputs of the correct shape and contains no NaN values when using the specified aggregator on the selected backend.
         """
         if backend not in AVAILABLE_BACKENDS:
@@ -198,7 +198,7 @@ class TestBackendCompatibility:
     ):
         """
         Verifies that the base MessagePassing class produces valid outputs across different backends.
-        
+
         Ensures the propagate method returns outputs with the correct shape and no NaN values when using the 'mean' aggregator on sample graph data.
         """
         if backend not in AVAILABLE_BACKENDS:
@@ -223,7 +223,7 @@ class TestBackendCompatibility:
     ):
         """
         Verifies that gradient computation and model training work correctly for GCNConv layers across different Keras backends.
-        
+
         This test builds and compiles a simple model using GCNConv, performs a training step, and asserts that the loss values before and after training are finite, ensuring backend compatibility for gradient-based optimization.
         """
         if backend not in AVAILABLE_BACKENDS:
@@ -276,7 +276,7 @@ class TestBackendCompatibility:
     ):
         """
         Verifies that GCNConv layer serialization and deserialization produce consistent configurations across different Keras backends.
-        
+
         Ensures that a GCNConv layer can be serialized to a config and accurately reconstructed from that config, with identical configuration before and after the process.
         """
         if backend not in AVAILABLE_BACKENDS:
@@ -302,7 +302,7 @@ class TestBackendCompatibility:
     ):
         """
         Tests the numerical stability of the GCNConv layer across different backends using extreme input values.
-        
+
         The test verifies that the GCNConv layer produces finite, non-NaN outputs when node features are scaled to very small (1e-6) and very large (1e3) magnitudes, ensuring robustness to input scale variations across all supported backends.
         """
         if backend not in AVAILABLE_BACKENDS:
@@ -333,7 +333,7 @@ class TestBackendCompatibility:
     ):
         """
         Tests that the GCNConv layer produces correct outputs when given a graph with no edges across different backends.
-        
+
         Asserts that the output shape matches the number of nodes and output dimension, and that all output values are zeros.
         """
         if backend not in AVAILABLE_BACKENDS:
@@ -354,7 +354,7 @@ class TestBackendCompatibility:
     def test_cross_backend_numerical_consistency(self, sample_data: dict[str, Any]):
         """
         Verifies that the outputs of the GCNConv layer are numerically consistent across at least two different Keras backends.
-        
+
         Skips the test if fewer than two backends are available. For the first two available backends, switches the backend, sets a fixed random seed, and computes the GCNConv output on the same sample data. Asserts that the outputs from both backends are close within a specified tolerance.
         """
         if len(AVAILABLE_BACKENDS) < 2:

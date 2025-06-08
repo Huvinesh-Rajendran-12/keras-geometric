@@ -57,13 +57,13 @@ class Set2Set(layers.Layer):
     ) -> None:
         """
         Initializes the Set2Set pooling layer for graph-level representation learning.
-        
+
         Args:
             output_dim: Dimensionality of the output representation.
             processing_steps: Number of iterative attention processing steps.
             lstm_units: Number of LSTM units; defaults to output_dim if None.
             dropout: Dropout rate between 0 and 1.
-        
+
         Raises:
             ValueError: If any argument is out of valid range.
         """
@@ -91,7 +91,7 @@ class Set2Set(layers.Layer):
     def build(self, input_shape: tuple[int, ...]) -> None:
         """
         Initializes the internal layers and validates the input shape for the Set2Set pooling layer.
-        
+
         Raises:
             ValueError: If the input shape is not 2D or the feature dimension is None.
         """
@@ -132,11 +132,11 @@ class Set2Set(layers.Layer):
     ) -> keras.KerasTensor:
         """
         Applies the Set2Set pooling mechanism to aggregate node features into a graph-level representation.
-        
+
         Args:
             inputs: Tensor of node features with shape [num_nodes, num_features].
             training: Whether the layer should behave in training mode (e.g., apply dropout).
-        
+
         Returns:
             A tensor of shape [1, lstm_units + input_dim] representing the pooled graph-level features.
         """
@@ -217,13 +217,13 @@ class Set2Set(layers.Layer):
     def compute_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, int]:
         """
         Returns the output shape of the Set2Set layer for a given input shape.
-        
+
         Args:
             input_shape: Tuple representing the shape of the input tensor (num_nodes, num_features).
-        
+
         Returns:
             A tuple representing the output shape (1, lstm_units + input_dim).
-        
+
         Raises:
             ValueError: If the input shape is not 2D or the feature dimension is None.
         """
@@ -243,7 +243,7 @@ class Set2Set(layers.Layer):
     def get_config(self) -> dict[str, Any]:
         """
         Returns the configuration of the Set2Set layer as a dictionary.
-        
+
         The configuration includes output dimension, number of processing steps, LSTM units, and dropout rate, enabling serialization and deserialization of the layer.
         """
         config = super().get_config()
@@ -261,12 +261,12 @@ class Set2Set(layers.Layer):
     def from_config(cls, config: dict[str, Any]) -> "Set2Set":
         """
         Creates a Set2Set layer instance from a configuration dictionary.
-        
+
         Args:
-        	config: A dictionary containing the layer configuration.
-        
+                config: A dictionary containing the layer configuration.
+
         Returns:
-        	A Set2Set layer initialized with the provided configuration.
+                A Set2Set layer initialized with the provided configuration.
         """
         return cls(**config)
 
@@ -312,11 +312,11 @@ class AttentionPooling(layers.Layer):
     ) -> None:
         """
         Initializes the AttentionPooling layer for graph-level representation learning.
-        
+
         Args:
             attention_dim: Dimensionality of the attention mechanism. If None, defaults to the input feature dimension.
             dropout: Dropout rate applied to inputs during training, between 0 and 1.
-        
+
         Raises:
             ValueError: If attention_dim is not positive or dropout is not in [0, 1].
         """
@@ -338,7 +338,7 @@ class AttentionPooling(layers.Layer):
     def build(self, input_shape: tuple[int, ...]) -> None:
         """
         Initializes the internal layers for attention-based pooling based on the input shape.
-        
+
         Validates that the input is a 2D tensor with a known feature dimension, then creates dense layers for attention transformation and scoring. Optionally adds a dropout layer if a nonzero dropout rate is specified.
         """
         if len(input_shape) != 2:
@@ -381,11 +381,11 @@ class AttentionPooling(layers.Layer):
     ) -> keras.KerasTensor:
         """
         Aggregates node features into a graph-level representation using attention pooling.
-        
+
         Args:
             inputs: Tensor of node features with shape [num_nodes, num_features].
             training: Whether the layer should behave in training mode (applies dropout).
-        
+
         Returns:
             A tensor of shape [1, num_features] representing the pooled graph features.
         """
@@ -414,10 +414,10 @@ class AttentionPooling(layers.Layer):
     def compute_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, int]:
         """
         Returns the output shape for the pooled graph representation.
-        
+
         Args:
             input_shape: Shape of the input tensor as (num_nodes, num_features).
-        
+
         Returns:
             A tuple representing the output shape (1, num_features).
         """
@@ -433,7 +433,7 @@ class AttentionPooling(layers.Layer):
     def get_config(self) -> dict[str, Any]:
         """
         Returns the configuration of the AttentionPooling layer as a dictionary.
-        
+
         The configuration includes the attention dimension and dropout rate, enabling
         serialization and deserialization of the layer.
         """
@@ -449,10 +449,10 @@ class AttentionPooling(layers.Layer):
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "AttentionPooling":
         """Instantiates an AttentionPooling layer from a configuration dictionary.
-        
+
         Args:
             config: A dictionary containing layer configuration parameters.
-        
+
         Returns:
             An instance of AttentionPooling initialized with the provided configuration.
         """

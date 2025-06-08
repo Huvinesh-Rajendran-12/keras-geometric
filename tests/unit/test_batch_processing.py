@@ -24,15 +24,15 @@ def create_batch_graphs(
 ):
     """
     Generates a list of synthetic graphs with random node features and edge indices.
-    
+
     Each graph in the batch contains the specified number of nodes, edges, and input feature dimensions. The returned list is suitable for testing graph neural network layers.
-     
+
     Args:
         num_graphs: Number of graphs to generate.
         nodes_per_graph: Number of nodes in each graph.
         edges_per_graph: Number of edges in each graph.
         input_dim: Dimensionality of node feature vectors.
-    
+
     Returns:
         A list of dictionaries, each representing a graph with keys:
             - "node_features": NumPy array of shape (nodes_per_graph, input_dim)
@@ -66,11 +66,11 @@ def create_batch_graphs(
 def simulate_batched_graph_processing(graphs, layer):
     """
     Processes a list of graphs sequentially through a given graph neural network layer.
-    
+
     Args:
         graphs: List of graph dictionaries, each containing "node_features" and "edge_indices".
         layer: A graph neural network layer to apply to each graph.
-    
+
     Returns:
         List of output tensors, one per input graph.
     """
@@ -89,7 +89,7 @@ class TestBatchProcessing:
     def test_sequential_graph_processing(self):
         """
         Tests sequential processing of multiple graphs through a GCNConv layer.
-        
+
         Creates a batch of graphs with fixed node and edge counts, applies the GCNConv layer to each graph, and verifies that the output shapes match expectations and contain no NaN values.
         """
         num_graphs = 5
@@ -118,7 +118,7 @@ class TestBatchProcessing:
     def test_variable_graph_sizes(self):
         """
         Tests processing of graphs with varying numbers of nodes and edges using a GATv2Conv layer.
-        
+
         Creates multiple graphs with different sizes, applies a GATv2Conv layer with multiple heads to each, and verifies that the output shape matches the expected number of nodes for each graph.
         """
         input_dim = 12
@@ -161,7 +161,7 @@ class TestBatchProcessing:
     def test_empty_graphs_in_batch(self):
         """
         Tests batch processing when some graphs in the batch are empty.
-        
+
         Verifies that the graph convolutional layer produces correctly shaped outputs for both normal and empty graphs, ensuring that empty graphs yield empty outputs without errors.
         """
         input_dim = 8
@@ -254,7 +254,7 @@ class TestBatchProcessing:
     def test_different_aggregators_batch(self):
         """
         Tests batch processing of graphs using SAGEConv layers with different aggregation strategies.
-        
+
         Creates a batch of graphs and processes them through SAGEConv layers with "mean", "max", and "sum" aggregators. Verifies that each aggregator produces outputs of the expected shape for each graph and that the outputs contain no NaN values.
         """
         num_graphs = 4
@@ -287,7 +287,7 @@ class TestBatchProcessing:
     def test_memory_efficiency_batch_processing(self):
         """
         Tests that batch processing a large number of graphs with a GCNConv layer does not exceed reasonable memory usage and produces valid outputs.
-        
+
         Asserts that memory consumption increase remains below 500MB and that the number of outputs matches the number of input graphs.
         """
         import gc
@@ -297,7 +297,7 @@ class TestBatchProcessing:
         def get_memory_usage():
             """
             Returns the current process's memory usage in megabytes.
-            
+
             Returns:
                 The resident set size (RSS) of the current process in megabytes.
             """
@@ -336,7 +336,7 @@ class TestBatchProcessing:
     def test_attention_batch_processing(self):
         """
         Tests batch processing of graphs using a GATv2Conv attention layer.
-        
+
         Creates a batch of graphs with fixed node and edge counts, applies a multi-head GATv2Conv layer to each graph, and verifies that the output shapes match the expected dimensions and contain no NaN values.
         """
         num_graphs = 3
@@ -366,7 +366,7 @@ class TestBatchProcessing:
     def test_gin_batch_processing(self):
         """
         Tests batch processing of graphs using GINConv layers with various aggregator types and epsilon configurations.
-        
+
         Verifies that outputs for each graph in the batch have the expected shape for different GINConv settings.
         """
         num_graphs = 4
@@ -398,7 +398,7 @@ class TestBatchProcessing:
     def test_mixed_model_batch_processing(self):
         """
         Tests batch processing of graphs through a Keras model combining GCNConv, SAGEConv, and dense softmax layers.
-        
+
         Creates a batch of graphs, processes each through a mixed model with graph convolutional and dense layers, and verifies output shapes and that softmax outputs sum to 1 per node.
         """
         num_graphs = 3
@@ -417,9 +417,9 @@ class TestBatchProcessing:
         def create_mixed_model():
             """
             Builds a Keras model for node classification using GCN and SAGE graph convolutional layers.
-            
+
             The model processes node features and edge indices through a GCNConv layer followed by a SAGEConv layer with mean aggregation, applies ReLU activations, and outputs class probabilities via a dense softmax layer.
-            
+
             Returns:
                 A Keras Model that takes node features and edge indices as input and outputs per-node class probabilities.
             """

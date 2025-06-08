@@ -47,10 +47,10 @@ class GlobalPooling(layers.Layer):
     ) -> None:
         """
         Initializes the GlobalPooling layer with the specified pooling operation.
-        
+
         Args:
             pooling: The type of pooling to apply across all nodes in the graph. Must be one of "mean", "max", or "sum".
-        
+
         Raises:
             ValueError: If an unsupported pooling type is provided.
         """
@@ -68,10 +68,10 @@ class GlobalPooling(layers.Layer):
     ) -> keras.KerasTensor:  # pyrefly: ignore  # bad-override
         """
         Applies global pooling to node features to produce a graph-level representation.
-        
+
         Args:
             inputs: A tensor of shape [num_nodes, num_features] representing node features.
-        
+
         Returns:
             A tensor of shape [1, num_features] containing the pooled graph features.
         """
@@ -93,13 +93,13 @@ class GlobalPooling(layers.Layer):
     def compute_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
         Computes the output shape for a single-graph global pooling operation.
-        
+
         Args:
             input_shape: Shape of the input tensor, expected to be (num_nodes, num_features).
-        
+
         Returns:
             Tuple representing the output shape (1, num_features).
-            
+
         Raises:
             ValueError: If the input shape is not 2-dimensional.
         """
@@ -115,7 +115,7 @@ class GlobalPooling(layers.Layer):
     def get_config(self) -> dict[str, Any]:
         """
         Returns the configuration of the layer, including the pooling type.
-        
+
         Returns:
             A dictionary containing the layer's configuration.
         """
@@ -127,12 +127,12 @@ class GlobalPooling(layers.Layer):
     def from_config(cls, config: dict[str, Any]) -> "GlobalPooling":
         """
         Instantiates a GlobalPooling layer from a configuration dictionary.
-        
+
         Args:
-        	config: A dictionary containing the layer configuration.
-        
+                config: A dictionary containing the layer configuration.
+
         Returns:
-        	A GlobalPooling instance initialized with the provided configuration.
+                A GlobalPooling instance initialized with the provided configuration.
         """
         return cls(**config)
 
@@ -181,10 +181,10 @@ class BatchGlobalPooling(layers.Layer):
     ) -> None:
         """
         Initializes the GlobalPooling layer with the specified pooling operation.
-        
+
         Args:
             pooling: The type of pooling to apply across all nodes in the graph. Must be one of "mean", "max", or "sum".
-        
+
         Raises:
             ValueError: If an unsupported pooling type is provided.
         """
@@ -202,14 +202,14 @@ class BatchGlobalPooling(layers.Layer):
     ) -> keras.KerasTensor:
         """
         Applies global pooling to batched node features, producing graph-level representations.
-        
+
         Expects a list or tuple containing node features and batch indices. For each graph in the batch, aggregates node features using the specified pooling method ("mean", "max", or "sum"). Handles empty graphs by returning zero vectors.
-        
+
         Args:
             inputs: A list or tuple with two elements:
                 - node_features: Tensor of shape [total_nodes, num_features], containing features for all nodes in the batch.
                 - batch: Tensor of shape [total_nodes], indicating the graph membership of each node.
-        
+
         Returns:
             A tensor of shape [num_graphs, num_features] containing pooled graph-level representations for each graph in the batch.
         """
@@ -255,10 +255,10 @@ class BatchGlobalPooling(layers.Layer):
     ) -> tuple[int | None, int]:
         """
         Computes the output shape for batched global pooling over graphs.
-        
+
         Args:
             input_shape: A list or tuple containing the shapes of node features and batch indices.
-        
+
         Returns:
             A tuple representing the output shape as (num_graphs, num_features), where num_graphs is dynamic.
         """
@@ -294,7 +294,7 @@ class BatchGlobalPooling(layers.Layer):
     def get_config(self) -> dict[str, Any]:
         """
         Returns the configuration of the layer, including the pooling type.
-        
+
         Returns:
             A dictionary containing the layer's configuration.
         """
@@ -306,10 +306,10 @@ class BatchGlobalPooling(layers.Layer):
     def from_config(cls, config: dict[str, Any]) -> "BatchGlobalPooling":
         """
         Instantiates a BatchGlobalPooling layer from a configuration dictionary.
-        
+
         Args:
             config: A dictionary containing the layer configuration.
-        
+
         Returns:
             A BatchGlobalPooling instance initialized with the provided configuration.
         """
