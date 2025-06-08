@@ -24,7 +24,13 @@ class TestModelIntegration:
 
     @pytest.fixture
     def sample_graph_data(self):
-        """Create sample graph data for testing."""
+        """
+        Generates synthetic graph data for integration tests.
+        
+        Returns:
+            A dictionary containing random node features, edge indices, edge attributes,
+            and metadata such as the number of nodes, edges, and input feature dimension.
+        """
         num_nodes = 50
         num_edges = 200
         input_dim = 16
@@ -50,7 +56,11 @@ class TestModelIntegration:
         }
 
     def test_multi_layer_gcn_model(self, sample_graph_data):
-        """Test a multi-layer GCN model for node classification."""
+        """
+        Tests a multi-layer GCN model for node classification using stacked GCNConv layers.
+        
+        Builds a three-layer GCN model with ReLU activations and a softmax output, then verifies that the output shape matches the expected number of nodes and classes, and that the softmax outputs sum to 1 for each node.
+        """
         data = sample_graph_data
         hidden_dim = 32
         output_dim = 7  # Number of classes
@@ -76,7 +86,11 @@ class TestModelIntegration:
         )  # Softmax check
 
     def test_heterogeneous_layer_model(self, sample_graph_data):
-        """Test model combining different types of GNN layers."""
+        """
+        Tests a model that combines GCN, GATv2, and SAGE GNN layers for node feature integration.
+        
+        Each layer processes the same node features and edge indices independently. Their outputs are concatenated and passed through a dense layer to produce final node representations. Asserts that the output shape matches the expected dimensions.
+        """
         data = sample_graph_data
         hidden_dim = 24
         output_dim = 16
@@ -108,7 +122,11 @@ class TestModelIntegration:
         assert predictions.shape == (data["num_nodes"], output_dim)
 
     def test_graph_classification_model(self, sample_graph_data):
-        """Test graph-level classification using pooling."""
+        """
+        Tests a graph-level classification model using GINConv layers and mean pooling.
+        
+        Builds a model with two GINConv layers, applies mean pooling to obtain a graph embedding, and passes it through a dense softmax classification head. Verifies that the output shape matches a single graph prediction and that the softmax output sums to 1.
+        """
         data = sample_graph_data
         hidden_dim = 32
         num_classes = 5
@@ -143,7 +161,11 @@ class TestModelIntegration:
         )  # Softmax check
 
     def test_sage_with_different_aggregators(self, sample_graph_data):
-        """Test SAGEConv with different aggregation strategies in one model."""
+        """
+        Tests a model using SAGEConv layers with mean, max, and sum aggregation strategies.
+        
+        Builds a Keras model that applies three SAGEConv layers with different aggregators to the same input, concatenates their outputs, and passes them through a dense layer. Verifies that the model produces outputs of the expected shape.
+        """
         data = sample_graph_data
         hidden_dim = 16
         output_dim = 8
@@ -176,7 +198,11 @@ class TestModelIntegration:
         assert predictions.shape == (data["num_nodes"], output_dim)
 
     def test_attention_mechanism_model(self, sample_graph_data):
-        """Test model with attention mechanisms."""
+        """
+        Tests a multi-head attention-based GNN model using stacked GATv2Conv layers.
+        
+        Builds a model with three GATv2Conv layers employing multiple attention heads and ELU activations, followed by softmax output. Verifies that the final prediction tensor has the expected shape for node classification.
+        """
         data = sample_graph_data
         hidden_dim = 20
         output_dim = 10
@@ -202,7 +228,11 @@ class TestModelIntegration:
         assert predictions.shape == (data["num_nodes"], output_dim)
 
     def test_residual_connections_model(self, sample_graph_data):
-        """Test model with residual connections between layers."""
+        """
+        Tests a GCN-based model with residual connections between layers.
+        
+        Builds a multi-layer GCN model using residual connections after the second and third layers, then verifies that the model produces outputs of the expected shape for node-level prediction.
+        """
         data = sample_graph_data
         hidden_dim = data["input_dim"]  # Same dim for residual connections
         output_dim = 12
@@ -237,7 +267,11 @@ class TestModelIntegration:
         assert predictions.shape == (data["num_nodes"], output_dim)
 
     def test_model_training_step(self, sample_graph_data):
-        """Test that integrated models can perform gradient computations."""
+        """
+        Tests that a simple integrated GNN model can perform a forward pass and compute a valid categorical crossentropy loss, simulating a training step with gradient computation capability.
+        
+        Asserts that the model produces predictions of the correct shape and that the computed loss is positive.
+        """
         data = sample_graph_data
         hidden_dim = 16
         num_classes = 3
@@ -266,7 +300,11 @@ class TestModelIntegration:
         assert keras.ops.convert_to_numpy(loss) > 0.0  # Loss should be positive
 
     def test_model_serialization(self, sample_graph_data):
-        """Test that integrated models can be saved and loaded."""
+        """
+        Tests that a Keras model can be serialized and deserialized while preserving structure and predictions.
+        
+        Builds a simple functional model, obtains predictions, serializes and recreates the model from its config, sets identical weights, and verifies that predictions remain numerically consistent after deserialization.
+        """
         data = sample_graph_data
         hidden_dim = 8
         output_dim = 4

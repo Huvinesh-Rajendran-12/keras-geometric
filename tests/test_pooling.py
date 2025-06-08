@@ -30,12 +30,21 @@ class TestGlobalPooling:
 
     @pytest.fixture
     def sample_node_features(self):
-        """Create sample node features for testing."""
+        """
+        Generates a reproducible tensor of random node features for testing.
+        
+        Returns:
+            A tensor of shape (50, 32) containing random float32 values.
+        """
         np.random.seed(42)
         return keras.ops.convert_to_tensor(np.random.randn(50, 32).astype(np.float32))
 
     def test_global_pooling_initialization(self):
-        """Test GlobalPooling layer initialization."""
+        """
+        Tests initialization of the GlobalPooling layer with valid and invalid pooling types.
+        
+        Verifies that the layer accepts supported pooling types ("mean", "max", "sum") and raises a ValueError for invalid types.
+        """
         # Test valid pooling types
         for pooling in ["mean", "max", "sum"]:
             layer = GlobalPooling(pooling=pooling)
@@ -46,7 +55,11 @@ class TestGlobalPooling:
             GlobalPooling(pooling="invalid")
 
     def test_global_pooling_output_shapes(self, sample_node_features):
-        """Test output shapes for different pooling operations."""
+        """
+        Tests that the GlobalPooling layer produces the correct output shape for each pooling type.
+        
+        Verifies that both the actual output and the computed output shape match the expected dimensions for "mean", "max", and "sum" pooling operations.
+        """
         num_nodes, num_features = 50, 32
 
         for pooling in ["mean", "max", "sum"]:
@@ -61,7 +74,9 @@ class TestGlobalPooling:
             assert computed_shape == (1, num_features)
 
     def test_global_pooling_forward_pass(self, sample_node_features):
-        """Test forward pass functionality."""
+        """
+        Verifies that the GlobalPooling layer produces correct outputs for mean, max, and sum pooling modes by comparing the results to expected Keras operations on sample node features.
+        """
         # Mean pooling
         mean_layer = GlobalPooling(pooling="mean")
         mean_output = mean_layer(sample_node_features)
@@ -93,7 +108,11 @@ class TestGlobalPooling:
         )
 
     def test_global_pooling_serialization(self):
-        """Test layer serialization and deserialization."""
+        """
+        Tests that the GlobalPooling layer can be serialized and deserialized correctly.
+        
+        Verifies that the configuration dictionary contains the expected pooling type and that a new layer created from this configuration preserves the pooling attribute.
+        """
         layer = GlobalPooling(pooling="mean")
         config = layer.get_config()
 
@@ -106,7 +125,9 @@ class TestGlobalPooling:
         assert new_layer.pooling == layer.pooling
 
     def test_global_pooling_invalid_input_shape(self):
-        """Test error handling for invalid input shapes."""
+        """
+        Tests that GlobalPooling raises a ValueError when given input shapes that are not 2D.
+        """
         layer = GlobalPooling(pooling="mean")
 
         # Test with 1D input
@@ -123,7 +144,15 @@ class TestBatchGlobalPooling:
 
     @pytest.fixture
     def sample_batch_data(self):
-        """Create sample batched data for testing."""
+        """
+        Generates sample batched node features and batch indices for testing graph pooling layers.
+        
+        Returns:
+            A tuple containing:
+                - node_features: Tensor of shape (total_nodes, 16) with random node features.
+                - batch: Tensor of shape (total_nodes,) indicating graph membership for each node.
+                - graph_sizes: List of integers specifying the number of nodes in each graph.
+        """
         np.random.seed(42)
 
         # Create features for 3 graphs with different sizes
@@ -143,7 +172,11 @@ class TestBatchGlobalPooling:
         return node_features, batch, graph_sizes
 
     def test_batch_global_pooling_initialization(self):
-        """Test BatchGlobalPooling layer initialization."""
+        """
+        Tests initialization of the BatchGlobalPooling layer with valid and invalid pooling types.
+        
+        Verifies that the layer accepts supported pooling types ("mean", "max", "sum") and raises a ValueError for invalid types.
+        """
         # Test valid pooling types
         for pooling in ["mean", "max", "sum"]:
             layer = BatchGlobalPooling(pooling=pooling)
@@ -154,7 +187,11 @@ class TestBatchGlobalPooling:
             BatchGlobalPooling(pooling="invalid")
 
     def test_batch_global_pooling_output_shapes(self, sample_batch_data):
-        """Test output shapes for batch pooling operations."""
+        """
+        Tests that BatchGlobalPooling produces correct output shapes for different pooling types.
+        
+        Verifies that the output shape matches (num_graphs, num_features) for each pooling operation.
+        """
         node_features, batch, graph_sizes = sample_batch_data
         num_graphs = len(graph_sizes)
         num_features = 16
@@ -167,7 +204,11 @@ class TestBatchGlobalPooling:
             assert output.shape == (num_graphs, num_features)
 
     def test_batch_global_pooling_forward_pass(self, sample_batch_data):
-        """Test forward pass functionality for batch pooling."""
+        """
+        Tests the forward pass of the BatchGlobalPooling layer for batched node features.
+        
+        Verifies that the output shape matches the number of graphs and feature dimension, and ensures the output contains no NaN or infinite values.
+        """
         node_features, batch, graph_sizes = sample_batch_data
 
         # Test mean pooling
@@ -183,7 +224,11 @@ class TestBatchGlobalPooling:
         assert not np.isinf(output_numpy).any()
 
     def test_batch_global_pooling_invalid_inputs(self):
-        """Test error handling for invalid inputs."""
+        """
+        Tests that BatchGlobalPooling raises ValueError for invalid input types and shapes.
+        
+        Verifies that the layer correctly handles cases where inputs or input shapes are not provided as a list or tuple, raising appropriate exceptions.
+        """
         layer = BatchGlobalPooling(pooling="mean")
 
         # Test with wrong number of inputs
@@ -195,7 +240,12 @@ class TestBatchGlobalPooling:
             layer.compute_output_shape((10, 5))
 
     def test_batch_global_pooling_serialization(self):
-        """Test layer serialization and deserialization."""
+        """
+        Tests that the BatchGlobalPooling layer can be serialized and deserialized correctly.
+        
+        Verifies that the layer's configuration includes the pooling type and that a new layer
+        created from the configuration matches the original.
+        """
         layer = BatchGlobalPooling(pooling="sum")
         config = layer.get_config()
 
@@ -213,12 +263,21 @@ class TestAttentionPooling:
 
     @pytest.fixture
     def sample_node_features(self):
-        """Create sample node features for testing."""
+        """
+        Generates a reproducible tensor of random node features for testing.
+        
+        Returns:
+            A tensor of shape (25, 64) containing random float32 values.
+        """
         np.random.seed(42)
         return keras.ops.convert_to_tensor(np.random.randn(25, 64).astype(np.float32))
 
     def test_attention_pooling_initialization(self):
-        """Test AttentionPooling layer initialization."""
+        """
+        Tests initialization of the AttentionPooling layer with default, custom, and invalid parameters.
+        
+        Verifies that default and custom parameter values are set correctly and that invalid values raise ValueError.
+        """
         # Test default initialization
         layer = AttentionPooling()
         assert layer.attention_dim is None
@@ -237,7 +296,9 @@ class TestAttentionPooling:
             AttentionPooling(dropout=1.5)
 
     def test_attention_pooling_build_and_call(self, sample_node_features):
-        """Test building and calling the AttentionPooling layer."""
+        """
+        Tests that the AttentionPooling layer builds its internal components correctly and produces outputs of the expected shape during forward passes in both training and inference modes.
+        """
         layer = AttentionPooling(attention_dim=32, dropout=0.1)
 
         # Test before building
@@ -260,7 +321,9 @@ class TestAttentionPooling:
         assert output_train.shape == (1, 64)
 
     def test_attention_pooling_output_shape(self):
-        """Test output shape computation."""
+        """
+        Tests that AttentionPooling computes the correct output shape and raises an error for invalid input shapes.
+        """
         layer = AttentionPooling()
 
         # Test compute_output_shape
@@ -273,7 +336,9 @@ class TestAttentionPooling:
             layer.compute_output_shape((25,))
 
     def test_attention_pooling_serialization(self):
-        """Test layer serialization and deserialization."""
+        """
+        Tests that the AttentionPooling layer can be serialized and deserialized with its configuration preserved.
+        """
         layer = AttentionPooling(attention_dim=16, dropout=0.2)
         config = layer.get_config()
 
@@ -294,12 +359,21 @@ class TestSet2Set:
 
     @pytest.fixture
     def sample_node_features(self):
-        """Create sample node features for testing."""
+        """
+        Generates a reproducible tensor of random node features for testing.
+        
+        Returns:
+            A tensor of shape (20, 32) containing random float32 values.
+        """
         np.random.seed(42)
         return keras.ops.convert_to_tensor(np.random.randn(20, 32).astype(np.float32))
 
     def test_set2set_initialization(self):
-        """Test Set2Set layer initialization."""
+        """
+        Verifies correct initialization and parameter validation for the Set2Set pooling layer.
+        
+        Tests default and custom parameter settings, and ensures ValueError is raised for invalid arguments.
+        """
         # Test default initialization
         layer = Set2Set(output_dim=16)
         assert layer.output_dim == 16
@@ -325,7 +399,9 @@ class TestSet2Set:
             Set2Set(output_dim=16, dropout=-0.1)
 
     def test_set2set_build_and_call(self, sample_node_features):
-        """Test building and calling the Set2Set layer."""
+        """
+        Tests that the Set2Set layer builds its internal components correctly and produces outputs of the expected shape during forward passes in both training and inference modes.
+        """
         layer = Set2Set(output_dim=16, processing_steps=2, dropout=0.1)
 
         # Test before building
@@ -352,7 +428,11 @@ class TestSet2Set:
         assert output_train.shape == (1, expected_output_dim)
 
     def test_set2set_output_shape(self):
-        """Test output shape computation."""
+        """
+        Tests that Set2Set layer computes correct output shapes and raises errors for invalid input shapes.
+        
+        Verifies that the output shape matches the expected dimension based on LSTM units and input features, and that appropriate exceptions are raised for non-2D or incomplete input shapes.
+        """
         layer = Set2Set(output_dim=16, lstm_units=24)
 
         # Test compute_output_shape
@@ -370,7 +450,9 @@ class TestSet2Set:
             layer.compute_output_shape((20, None))
 
     def test_set2set_serialization(self):
-        """Test layer serialization and deserialization."""
+        """
+        Tests that the Set2Set layer can be serialized and deserialized with all configuration parameters preserved.
+        """
         layer = Set2Set(output_dim=32, processing_steps=4, lstm_units=16, dropout=0.2)
         config = layer.get_config()
 
@@ -392,7 +474,11 @@ class TestSet2Set:
         assert new_layer.dropout_rate == layer.dropout_rate
 
     def test_set2set_automatic_build(self, sample_node_features):
-        """Test that layer builds automatically when called."""
+        """
+        Tests that the Set2Set layer automatically builds its internal components upon first call.
+        
+        Verifies that the layer is not built before invocation, and that after being called with sample node features, its internal LSTM cell and attention dense layer are initialized and the output shape matches the expected dimensions.
+        """
         layer = Set2Set(output_dim=16)
 
         # Layer should build automatically when called
@@ -410,7 +496,11 @@ class TestPoolingIntegration:
     """Integration tests for pooling layers."""
 
     def test_pooling_in_graph_classification_pipeline(self):
-        """Test pooling layers in a complete graph classification pipeline."""
+        """
+        Tests the integration of pooling layers within a graph classification pipeline.
+        
+        Verifies that various pooling layers produce valid graph representations that can be passed through a dense classification head, resulting in correct output shapes and valid probability distributions.
+        """
         np.random.seed(42)
 
         # Create sample data
@@ -449,7 +539,10 @@ class TestPoolingIntegration:
             )
 
     def test_pooling_layers_with_gradients(self):
-        """Test that pooling layers work with gradient computation."""
+        """
+        Tests that pooling layers support gradient computation by verifying loss calculation
+        after pooling and classification produces a valid scalar greater than zero.
+        """
         np.random.seed(42)
 
         node_features = keras.ops.convert_to_tensor(

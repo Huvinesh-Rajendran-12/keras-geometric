@@ -55,6 +55,18 @@ class Set2Set(layers.Layer):
         dropout: float = 0.0,
         **kwargs,
     ) -> None:
+        """
+        Initializes the Set2Set pooling layer for graph-level representation learning.
+        
+        Args:
+            output_dim: Dimensionality of the output representation.
+            processing_steps: Number of iterative attention processing steps.
+            lstm_units: Number of LSTM units; defaults to output_dim if None.
+            dropout: Dropout rate between 0 and 1.
+        
+        Raises:
+            ValueError: If any argument is out of valid range.
+        """
         super().__init__(**kwargs)
 
         if output_dim <= 0:
@@ -77,7 +89,12 @@ class Set2Set(layers.Layer):
         self.dropout_layer: layers.Dropout | None = None
 
     def build(self, input_shape: tuple[int, ...]) -> None:
-        """Build the layer weights."""
+        """
+        Initializes the internal layers and validates the input shape for the Set2Set pooling layer.
+        
+        Raises:
+            ValueError: If the input shape is not 2D or the feature dimension is None.
+        """
         if len(input_shape) != 2:
             raise ValueError(
                 f"Expected input shape to be 2D (num_nodes, num_features), "
@@ -114,14 +131,14 @@ class Set2Set(layers.Layer):
         self, inputs: keras.KerasTensor, training: bool | None = None, **kwargs
     ) -> keras.KerasTensor:
         """
-        Apply Set2Set pooling to node features.
-
+        Applies the Set2Set pooling mechanism to aggregate node features into a graph-level representation.
+        
         Args:
-            inputs: Node features tensor of shape [num_nodes, num_features]
-            training: Boolean indicating training or inference mode
-
+            inputs: Tensor of node features with shape [num_nodes, num_features].
+            training: Whether the layer should behave in training mode (e.g., apply dropout).
+        
         Returns:
-            Graph-level representation tensor of shape [1, 2 * output_dim]
+            A tensor of shape [1, lstm_units + input_dim] representing the pooled graph-level features.
         """
         if self.lstm_cell is None or self.attention_dense is None:
             raise RuntimeError("Layer not built. Call build() first.")
@@ -198,7 +215,18 @@ class Set2Set(layers.Layer):
         return output
 
     def compute_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, int]:
-        """Compute the output shape given input shape."""
+        """
+        Returns the output shape of the Set2Set layer for a given input shape.
+        
+        Args:
+            input_shape: Tuple representing the shape of the input tensor (num_nodes, num_features).
+        
+        Returns:
+            A tuple representing the output shape (1, lstm_units + input_dim).
+        
+        Raises:
+            ValueError: If the input shape is not 2D or the feature dimension is None.
+        """
         if len(input_shape) != 2:
             raise ValueError(
                 f"Expected input shape to be 2D (num_nodes, num_features), "
@@ -213,7 +241,11 @@ class Set2Set(layers.Layer):
         return (1, self.lstm_units + input_dim)
 
     def get_config(self) -> dict[str, Any]:
-        """Get layer configuration."""
+        """
+        Returns the configuration of the Set2Set layer as a dictionary.
+        
+        The configuration includes output dimension, number of processing steps, LSTM units, and dropout rate, enabling serialization and deserialization of the layer.
+        """
         config = super().get_config()
         config.update(
             {
@@ -227,7 +259,15 @@ class Set2Set(layers.Layer):
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "Set2Set":
-        """Create layer from configuration."""
+        """
+        Creates a Set2Set layer instance from a configuration dictionary.
+        
+        Args:
+        	config: A dictionary containing the layer configuration.
+        
+        Returns:
+        	A Set2Set layer initialized with the provided configuration.
+        """
         return cls(**config)
 
 
@@ -270,6 +310,16 @@ class AttentionPooling(layers.Layer):
         dropout: float = 0.0,
         **kwargs,
     ) -> None:
+        """
+        Initializes the AttentionPooling layer for graph-level representation learning.
+        
+        Args:
+            attention_dim: Dimensionality of the attention mechanism. If None, defaults to the input feature dimension.
+            dropout: Dropout rate applied to inputs during training, between 0 and 1.
+        
+        Raises:
+            ValueError: If attention_dim is not positive or dropout is not in [0, 1].
+        """
         super().__init__(**kwargs)
 
         if attention_dim is not None and attention_dim <= 0:
@@ -286,7 +336,11 @@ class AttentionPooling(layers.Layer):
         self.dropout_layer: layers.Dropout | None = None
 
     def build(self, input_shape: tuple[int, ...]) -> None:
-        """Build the layer weights."""
+        """
+        Initializes the internal layers for attention-based pooling based on the input shape.
+        
+        Validates that the input is a 2D tensor with a known feature dimension, then creates dense layers for attention transformation and scoring. Optionally adds a dropout layer if a nonzero dropout rate is specified.
+        """
         if len(input_shape) != 2:
             raise ValueError(
                 f"Expected input shape to be 2D (num_nodes, num_features), "
@@ -326,14 +380,14 @@ class AttentionPooling(layers.Layer):
         self, inputs: keras.KerasTensor, training: bool | None = None, **kwargs
     ) -> keras.KerasTensor:
         """
-        Apply attention pooling to node features.
-
+        Aggregates node features into a graph-level representation using attention pooling.
+        
         Args:
-            inputs: Node features tensor of shape [num_nodes, num_features]
-            training: Boolean indicating training or inference mode
-
+            inputs: Tensor of node features with shape [num_nodes, num_features].
+            training: Whether the layer should behave in training mode (applies dropout).
+        
         Returns:
-            Graph-level representation tensor of shape [1, num_features]
+            A tensor of shape [1, num_features] representing the pooled graph features.
         """
         if self.attention_dense is None or self.attention_score is None:
             raise RuntimeError("Layer not built. Call build() first.")
@@ -358,7 +412,15 @@ class AttentionPooling(layers.Layer):
         return pooled
 
     def compute_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, int]:
-        """Compute the output shape given input shape."""
+        """
+        Returns the output shape for the pooled graph representation.
+        
+        Args:
+            input_shape: Shape of the input tensor as (num_nodes, num_features).
+        
+        Returns:
+            A tuple representing the output shape (1, num_features).
+        """
         if len(input_shape) != 2:
             raise ValueError(
                 f"Expected input shape to be 2D (num_nodes, num_features), "
@@ -369,7 +431,12 @@ class AttentionPooling(layers.Layer):
         return (1, input_shape[1])
 
     def get_config(self) -> dict[str, Any]:
-        """Get layer configuration."""
+        """
+        Returns the configuration of the AttentionPooling layer as a dictionary.
+        
+        The configuration includes the attention dimension and dropout rate, enabling
+        serialization and deserialization of the layer.
+        """
         config = super().get_config()
         config.update(
             {
@@ -381,5 +448,12 @@ class AttentionPooling(layers.Layer):
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "AttentionPooling":
-        """Create layer from configuration."""
+        """Instantiates an AttentionPooling layer from a configuration dictionary.
+        
+        Args:
+            config: A dictionary containing layer configuration parameters.
+        
+        Returns:
+            An instance of AttentionPooling initialized with the provided configuration.
+        """
         return cls(**config)

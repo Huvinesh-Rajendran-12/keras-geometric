@@ -122,7 +122,11 @@ class Dataset:
         return data_list, num_classes
 
     def _save_processed(self):
-        """Save processed data to disk."""
+        """
+        Saves the processed dataset to disk in NumPy `.npz` format.
+        
+        Each graph's attributes (`x`, `edge_index`, optional `edge_attr`, and optional `y`) are stored as separate arrays, along with metadata for the number of graphs and classes.
+        """
         # Prepare data for saving
         save_data = {}
 
@@ -198,19 +202,19 @@ class Dataset:
         seed: Optional[int] = None,
     ) -> tuple[list[GraphData], list[GraphData], list[GraphData]]:
         """
-        Split the dataset into training, validation, and test sets.
-
+        Splits the dataset into training, validation, and test subsets according to specified ratios.
+        
+        The data can be shuffled for randomized splits, with optional reproducibility via a random seed. If a transform is specified, it is applied to each subset before returning.
+        
         Args:
-            train_ratio: Ratio of training data
-            val_ratio: Ratio of validation data
-            test_ratio: Ratio of test data
-            shuffle: Whether to shuffle the data before splitting
-            seed: Random seed for reproducibility
-
+            train_ratio: Proportion of data to include in the training set.
+            val_ratio: Proportion of data to include in the validation set.
+            test_ratio: Proportion of data to include in the test set.
+            shuffle: If True, shuffles the data before splitting.
+            seed: Seed for random shuffling to ensure reproducibility.
+        
         Returns:
-            train_data: List of GraphData objects for training
-            val_data: List of GraphData objects for validation
-            test_data: List of GraphData objects for testing
+            A tuple containing three lists of GraphData objects: (train_data, val_data, test_data).
         """
         assert (
             abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-5
