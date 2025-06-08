@@ -301,8 +301,12 @@ class TestBatchProcessing:
             Returns:
                 The resident set size (RSS) of the current process in megabytes.
             """
-            process = psutil.Process(os.getpid())
-            return process.memory_info().rss / 1024 / 1024  # MB
+            process = psutil.Process()  # Uses current process by default
+            return (
+                process.memory_info().rss
+                / 1024
+                / 1024  # pyrefly: ignore  # missing-argument
+            )
 
         num_graphs = 10
         nodes_per_graph = 100

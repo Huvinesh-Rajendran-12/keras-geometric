@@ -246,7 +246,7 @@ class TestBackendCompatibility:
         targets = np.random.randint(0, 3, size=(sample_data["num_nodes"],))
 
         # Test gradient computation by running one training step
-        with keras.utils.custom_object_scope():
+        with keras.utils.custom_object_scope({}):
             initial_loss = model.evaluate(
                 [sample_data["node_features"], sample_data["edge_indices"]],
                 targets,
