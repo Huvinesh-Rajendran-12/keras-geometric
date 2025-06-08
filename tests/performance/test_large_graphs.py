@@ -99,7 +99,7 @@ class TestLargeGraphPerformance:
 
         # Verify output
         assert output.shape == (num_nodes, output_dim)
-        assert not np.any(np.isnan(output.numpy()))
+        assert not np.any(np.isnan(keras.ops.convert_to_numpy(output)))
 
         # Performance assertions
         assert forward_time < 5.0, (
@@ -133,7 +133,7 @@ class TestLargeGraphPerformance:
 
         # Verify output
         assert output.shape == (num_nodes, output_dim)
-        assert not np.any(np.isnan(output.numpy()))
+        assert not np.any(np.isnan(keras.ops.convert_to_numpy(output)))
 
         # Performance assertions (attention is more expensive)
         assert forward_time < 10.0, (
@@ -167,7 +167,7 @@ class TestLargeGraphPerformance:
 
         # Verify output
         assert output.shape == (num_nodes, output_dim)
-        assert not np.any(np.isnan(output.numpy()))
+        assert not np.any(np.isnan(keras.ops.convert_to_numpy(output)))
 
         # Performance assertions
         assert forward_time < 8.0, (
@@ -276,7 +276,7 @@ class TestLargeGraphPerformance:
 
         # Verify output
         assert x.shape == (num_nodes, hidden_dim)
-        assert not np.any(np.isnan(x.numpy()))
+        assert not np.any(np.isnan(keras.ops.convert_to_numpy(x)))
 
         # Performance assertions
         assert forward_time < 15.0, f"Multi-layer forward pass took {forward_time:.2f}s"
@@ -316,7 +316,7 @@ class TestLargeGraphPerformance:
         assert len(outputs) == num_graphs
         for output in outputs:
             assert output.shape == (nodes_per_graph, output_dim)
-            assert not np.any(np.isnan(output.numpy()))
+            assert not np.any(np.isnan(keras.ops.convert_to_numpy(output)))
 
         # Performance assertion
         avg_time_per_graph = total_time / num_graphs

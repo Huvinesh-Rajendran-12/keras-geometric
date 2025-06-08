@@ -311,16 +311,15 @@ class TestModelIntegration:
 
         # Build model using functional approach without custom layers for now
         node_input = keras.Input(shape=(data["input_dim"],), name="node_features")
-        edge_input = keras.Input(shape=(2,), name="edge_indices")
 
-        # Use dense layer instead of GCN to test serialization framework
+        # Use dense layer to test serialization framework
         x = keras.layers.Dense(hidden_dim, activation="relu")(node_input)
         outputs = keras.layers.Dense(output_dim)(x)
 
-        model = keras.Model(inputs=[node_input, edge_input], outputs=outputs)
+        model = keras.Model(inputs=node_input, outputs=outputs)
 
         # Get predictions before serialization
-        pred_before = model([data["node_features"], data["edge_indices"].T])
+        pred_before = model(data["node_features"])
 
         # Test config serialization/deserialization
         config = model.get_config()
@@ -331,6 +330,6 @@ class TestModelIntegration:
 
         # Set same weights and test predictions
         model_from_config.set_weights(model.get_weights())
-        pred_after = model_from_config([data["node_features"], data["edge_indices"].T])
+        pred_after = model_from_config(data["node_features"])
 
-        np.testing.assert_allclose(pred_before.numpy(), pred_after.numpy(), rtol=1e-6)
+        np.testing.assert_allclose(keras.ops.convert_to_numpy(pred_before), keras.ops.convert_to_numpy(pred_after), rtol=1e-6)
