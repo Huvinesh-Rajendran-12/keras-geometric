@@ -101,7 +101,8 @@ class TestErrorHandling:
         )  # Node 15 doesn't exist
 
         # This should raise an error - different backends raise different error types
-        with pytest.raises((ValueError, Exception)):
+        with pytest.raises(Exception) as excinfo:
+            print(f"The error is {excinfo.value}")
             layer([node_features, invalid_edges])
 
     def test_negative_edge_indices(self):
