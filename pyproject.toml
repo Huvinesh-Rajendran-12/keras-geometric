@@ -28,8 +28,13 @@ classifiers = [ # Find classifiers at https://pypi.org/classifiers/
 # --- Dependencies ---
 # Keep runtime dependencies minimal - only what's needed to use the package
 dependencies = [
+    "jax[cpu]>=0.4.30",
+    "jaxlib>=0.4.30",
     "keras>=3.0",
     "numpy>=1.24.0", # Compatible with both numpy 1.x and 2.x
+    "pytest>=8.3.5",
+    "tensorflow>=2.19.0",
+    "torch>=2.6.0",
 ]
 
 # --- Optional Dependencies ---

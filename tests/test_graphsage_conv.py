@@ -360,7 +360,7 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
                     keras_sage.lin_self.get_weights() if root_weight else None
                 )  # kernel
                 keras_bias = (
-                    keras_sage.bias.numpy() if use_bias else None
+                    keras.ops.convert_to_numpy(keras_sage.bias) if use_bias else None
                 )  # separate bias
 
                 # Sync neighbor weights (W_r in Keras, maps to lin_r or lin_l in PyG)
@@ -498,7 +498,7 @@ class TestGraphSAGEConvComprehensive(unittest.TestCase):  # Renamed class
             else np.zeros(self.output_dim, dtype=np.float32)
         )
         b_final = (
-            layer.bias.numpy()
+            keras.ops.convert_to_numpy(layer.bias)
             if use_bias and root_weight
             else np.zeros(self.output_dim, dtype=np.float32)
         )
