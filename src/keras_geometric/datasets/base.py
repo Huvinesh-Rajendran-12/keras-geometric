@@ -131,9 +131,9 @@ class Dataset:
         save_data = {}
 
         # Ensure data_list is not None before processing
-        assert (
-            self._data_list is not None
-        ), "Data list is None, cannot save processed data."
+        assert self._data_list is not None, (
+            "Data list is None, cannot save processed data."
+        )
 
         for i, graph_data in enumerate(self._data_list):
             # Convert GraphData to numpy arrays
@@ -216,9 +216,9 @@ class Dataset:
         Returns:
             A tuple containing three lists of GraphData objects: (train_data, val_data, test_data).
         """
-        assert (
-            abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-5
-        ), "The sum of train_ratio, val_ratio, and test_ratio must be 1"
+        assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-5, (
+            "The sum of train_ratio, val_ratio, and test_ratio must be 1"
+        )
 
         # Create a copy of the data list
         data_list: list[GraphData] = (
