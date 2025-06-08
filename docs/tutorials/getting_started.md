@@ -129,14 +129,16 @@ labels_categorical = keras.utils.to_categorical(labels, num_classes=3)
 print(f"Graph: {node_features.shape[0]} nodes, {edge_indices.shape[1]} edges")
 
 # Build multi-layer GCN
-class NodeClassificationGCN:
+class NodeClassificationGCN(keras.Model):
     def __init__(self, hidden_dim=64, num_classes=3, dropout=0.5):
+        super().__init__()
         self.gcn1 = GCNConv(hidden_dim, use_bias=True)
         self.gcn2 = GCNConv(hidden_dim, use_bias=True)
         self.classifier = keras.layers.Dense(num_classes, activation="softmax")
         self.dropout = keras.layers.Dropout(dropout)
 
-    def __call__(self, node_features, edge_indices, training=False):
+    def call(self, inputs, training=False):
+        node_features, edge_indices = inputs
         # First GCN layer
         x = self.gcn1([node_features, edge_indices])
         x = keras.ops.relu(x)
@@ -155,7 +157,7 @@ class NodeClassificationGCN:
 model = NodeClassificationGCN(hidden_dim=32, num_classes=3)
 
 # Forward pass
-predictions = model(node_features, edge_indices, training=False)
+predictions = model([node_features, edge_indices], training=False)
 
 # Compute accuracy
 predicted_labels = keras.ops.argmax(predictions, axis=1)
@@ -196,14 +198,16 @@ def create_graph_batch():
     return graphs
 
 # Create graph classification model
-class GraphClassificationGIN:
+class GraphClassificationGIN(keras.Model):
     def __init__(self, hidden_dim=32, num_classes=2):
+        super().__init__()
         self.gin1 = GINConv(hidden_dim, aggregator="sum")
         self.gin2 = GINConv(hidden_dim, aggregator="sum")
         self.pooling = GlobalPooling(pooling="mean")
         self.classifier = keras.layers.Dense(num_classes, activation="softmax")
 
-    def __call__(self, node_features, edge_indices):
+    def call(self, inputs, training=False):
+        node_features, edge_indices = inputs
         # Graph convolutions
         x = self.gin1([node_features, edge_indices])
         x = keras.ops.relu(x)
@@ -226,7 +230,7 @@ for i, (node_features, edge_indices) in enumerate(graphs):
     node_features = keras.ops.convert_to_tensor(node_features)
     edge_indices = keras.ops.convert_to_tensor(edge_indices)
 
-    predictions = model(node_features, edge_indices)
+    predictions = model([node_features, edge_indices])
     print(f"Graph {i+1}: {node_features.shape[0]} nodes -> prediction shape: {predictions.shape}")
 ```
 
@@ -238,8 +242,9 @@ Let's build a Graph Attention Network (GAT) with attention pooling:
 from keras_geometric.layers import GATv2Conv
 from keras_geometric.layers.pooling import AttentionPooling
 
-class AdvancedGraphModel:
+class AdvancedGraphModel(keras.Model):
     def __init__(self, hidden_dim=32, num_heads=4, num_classes=3):
+        super().__init__()
         # Multi-head attention layers
         self.gat1 = GATv2Conv(hidden_dim, heads=num_heads, use_bias=True)
         self.gat2 = GATv2Conv(hidden_dim, heads=2, use_bias=True)
@@ -250,7 +255,8 @@ class AdvancedGraphModel:
         # Classification
         self.classifier = keras.layers.Dense(num_classes, activation="softmax")
 
-    def __call__(self, node_features, edge_indices, training=False):
+    def call(self, inputs, training=False):
+        node_features, edge_indices = inputs
         # First GAT layer (multi-head)
         x = self.gat1([node_features, edge_indices])
         x = keras.ops.elu(x)
@@ -272,7 +278,7 @@ node_features = keras.ops.convert_to_tensor(node_features)
 edge_indices = keras.ops.convert_to_tensor(edge_indices)
 
 advanced_model = AdvancedGraphModel(hidden_dim=24, num_heads=3, num_classes=3)
-predictions = advanced_model(node_features, edge_indices)
+predictions = advanced_model([node_features, edge_indices])
 
 print(f"Advanced model output shape: {predictions.shape}")
 ```
