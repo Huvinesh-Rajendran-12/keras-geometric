@@ -87,3 +87,15 @@ Keras Geometric is a library built on Keras 3+ for geometric deep learning with 
 1. Ensure all tests pass: `uv run pytest tests/`
 2. Create a new release tag: `./scripts/create_release.sh X.Y.Z`
 3. The CI/CD pipeline will automatically build and deploy to PyPI when a new tag is detected
+
+## Package Management
+ALWAYS use `uv` for package management operations. Never use `pip` directly.
+- Install packages: `uv add <package>` or `uv pip install <package>`
+- Update packages: `uv pip install --upgrade <package>`
+- Install project in dev mode: `uv pip install -e ".[dev]"`
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

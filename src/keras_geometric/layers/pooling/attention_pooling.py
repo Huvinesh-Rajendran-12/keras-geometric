@@ -185,10 +185,12 @@ class Set2Set(layers.Layer):
                 weighted_features, states=[h_state, c_state], training=training
             )
             # Handle LSTM cell output: (output, [h_state, c_state])
-            h_state, c_state = (
-                lstm_output[1][0],
-                lstm_output[1][1],
-            )  # pyrefly: ignore  # bad-specialization
+            states = lstm_output[1]  # pyrefly: ignore  # bad-specialization
+            if states is not None:  # pyrefly: ignore  # bad-specialization
+                h_state, c_state = (
+                    states[0],
+                    states[1],
+                )  # pyrefly: ignore  # bad-specialization
 
         # Final attention computation with the last hidden state
         h_squeezed = ops.squeeze(h_state, axis=0)  # [lstm_units]
