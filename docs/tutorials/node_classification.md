@@ -52,15 +52,17 @@ print(f"Number of classes: {len(np.unique(data.y))}")
 Let's start with a basic Graph Convolutional Network:
 
 ```python
-class SimpleGCN:
+class SimpleGCN(keras.Model):
     \"\"\"Simple 2-layer GCN for node classification.\"\"\"
 
     def __init__(self, input_dim, hidden_dim, num_classes, dropout=0.5):
+        super().__init__()
         self.gcn1 = GCNConv(hidden_dim, use_bias=True)
         self.gcn2 = GCNConv(num_classes, use_bias=True)
         self.dropout = keras.layers.Dropout(dropout)
 
-    def __call__(self, x, edge_index, training=False):
+    def call(self, inputs, training=False):
+        x, edge_index = inputs
         # First layer
         x = self.gcn1([x, edge_index])
         x = keras.ops.relu(x)
@@ -78,7 +80,7 @@ model = SimpleGCN(
 )
 
 # Forward pass
-logits = model(data.x, data.edge_index, training=False)
+logits = model([data.x, data.edge_index], training=False)
 predictions = keras.ops.softmax(logits)
 
 print(f"Output shape: {predictions.shape}")
@@ -132,7 +134,7 @@ def train_node_classifier(model, data, epochs=200, lr=0.01, weight_decay=5e-4):
         # Training step
         with keras.utils.custom_object_scope():
             # Forward pass
-            logits = model(x, edge_index, training=True)
+            logits = model([x, edge_index], training=True)
 
             # Compute loss (only on training nodes)
             train_logits = keras.ops.boolean_mask(logits, train_mask)
@@ -146,7 +148,7 @@ def train_node_classifier(model, data, epochs=200, lr=0.01, weight_decay=5e-4):
 
         # Evaluation
         with keras.utils.custom_object_scope():
-            logits = model(x, edge_index, training=False)
+            logits = model([x, edge_index], training=False)
             pred = keras.ops.argmax(logits, axis=1)
 
             # Validation accuracy
@@ -187,15 +189,17 @@ gcn_accuracy = train_node_classifier(model, data)
 GATs use attention mechanisms to learn the importance of different neighbors:
 
 ```python
-class GATNodeClassifier:
+class GATNodeClassifier(keras.Model):
     \"\"\"Graph Attention Network for node classification.\"\"\"
 
     def __init__(self, input_dim, hidden_dim, num_classes, heads=8, dropout=0.6):
+        super().__init__()
         self.gat1 = GATv2Conv(hidden_dim, heads=heads, dropout=dropout, use_bias=True)
         self.gat2 = GATv2Conv(num_classes, heads=1, dropout=dropout, use_bias=True)
         self.dropout = keras.layers.Dropout(dropout)
 
-    def __call__(self, x, edge_index, training=False):
+    def call(self, inputs, training=False):
+        x, edge_index = inputs
         # First GAT layer (multi-head)
         x = self.gat1([x, edge_index])
         x = keras.ops.elu(x)
@@ -222,15 +226,17 @@ gat_accuracy = train_node_classifier(gat_model, data)
 GraphSAGE is particularly good for large graphs and inductive learning:
 
 ```python
-class SAGENodeClassifier:
+class SAGENodeClassifier(keras.Model):
     \"\"\"GraphSAGE for node classification.\"\"\"
 
     def __init__(self, input_dim, hidden_dim, num_classes, dropout=0.5):
+        super().__init__()
         self.sage1 = SAGEConv(hidden_dim, aggregator="mean")
         self.sage2 = SAGEConv(num_classes, aggregator="mean")
         self.dropout = keras.layers.Dropout(dropout)
 
-    def __call__(self, x, edge_index, training=False):
+    def call(self, inputs, training=False):
+        x, edge_index = inputs
         # First SAGE layer
         x = self.sage1([x, edge_index])
         x = keras.ops.relu(x)
@@ -256,10 +262,11 @@ sage_accuracy = train_node_classifier(sage_model, data)
 For deeper networks, residual connections help with training:
 
 ```python
-class DeepGCN:
+class DeepGCN(keras.Model):
     \"\"\"Deep GCN with residual connections.\"\"\"
 
     def __init__(self, input_dim, hidden_dim, num_classes, num_layers=4, dropout=0.5):
+        super().__init__()
         self.num_layers = num_layers
         self.dropout = keras.layers.Dropout(dropout)
 
@@ -272,7 +279,8 @@ class DeepGCN:
         # Output layer
         self.output_layer = keras.layers.Dense(num_classes)
 
-    def __call__(self, x, edge_index, training=False):
+    def call(self, inputs, training=False):
+        x, edge_index = inputs
         # Input projection
         x = self.input_proj(x)
         x = keras.ops.relu(x)
@@ -477,7 +485,7 @@ def detailed_evaluation(model, data):
     x = keras.ops.convert_to_tensor(data.x, dtype="float32")
     edge_index = keras.ops.convert_to_tensor(data.edge_index, dtype="int32")
 
-    logits = model(x, edge_index, training=False)
+    logits = model([x, edge_index], training=False)
     pred = keras.ops.convert_to_numpy(keras.ops.argmax(logits, axis=1))
 
     # Test set evaluation
@@ -520,13 +528,15 @@ model_regularized = SimpleGCN(
 ### Issue 2: Vanishing Gradients
 ```python
 # Solution: Residual connections, batch normalization
-class RegularizedGCN:
+class RegularizedGCN(keras.Model):
     def __init__(self, input_dim, hidden_dim, num_classes):
+        super().__init__()
         self.gcn1 = GCNConv(hidden_dim, use_bias=True)
         self.bn1 = keras.layers.BatchNormalization()
         self.gcn2 = GCNConv(num_classes, use_bias=True)
 
-    def __call__(self, x, edge_index, training=False):
+    def call(self, inputs, training=False):
+        x, edge_index = inputs
         x = self.gcn1([x, edge_index])
         x = self.bn1(x, training=training)  # Batch norm
         x = keras.ops.relu(x)
