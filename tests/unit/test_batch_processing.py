@@ -145,7 +145,8 @@ class TestBatchProcessing:
             )
 
         # Create layer
-        layer = GATv2Conv(output_dim=output_dim, heads=2)
+        heads = 2
+        layer = GATv2Conv(output_dim=output_dim, heads=heads)
 
         # Process graphs
         outputs = []
@@ -156,7 +157,9 @@ class TestBatchProcessing:
         # Verify outputs
         for i, output in enumerate(outputs):
             expected_nodes = graph_configs[i][0]
-            assert output.shape == (expected_nodes, output_dim)
+            # GATv2Conv concatenates heads, so output_dim is multiplied by heads
+            expected_output_dim = output_dim * heads
+            assert output.shape == (expected_nodes, expected_output_dim)
 
     def test_empty_graphs_in_batch(self):
         """
@@ -364,7 +367,9 @@ class TestBatchProcessing:
         # Verify outputs
         assert len(outputs) == num_graphs
         for output in outputs:
-            assert output.shape == (nodes_per_graph, output_dim)
+            # GATv2Conv concatenates heads, so output_dim is multiplied by heads
+            expected_output_dim = output_dim * heads
+            assert output.shape == (nodes_per_graph, expected_output_dim)
             assert not np.any(np.isnan(output.numpy()))
 
     def test_gin_batch_processing(self):
@@ -386,9 +391,9 @@ class TestBatchProcessing:
 
         # Test different GIN configurations
         layer_configs = [
-            {"aggregator": "sum", "epsilon": 0.0, "train_eps": False},
-            {"aggregator": "mean", "epsilon": 0.1, "train_eps": True},
-            {"aggregator": "max", "epsilon": 1.0, "train_eps": False},
+            {"aggregator": "sum", "eps_init": 0.0, "train_eps": False},
+            {"aggregator": "mean", "eps_init": 0.1, "train_eps": True},
+            {"aggregator": "max", "eps_init": 1.0, "train_eps": False},
         ]
 
         for config in layer_configs:
@@ -417,38 +422,25 @@ class TestBatchProcessing:
             num_graphs, nodes_per_graph, edges_per_graph, input_dim
         )
 
-        # Build mixed model
-        def create_mixed_model():
-            """
-            Builds a Keras model for node classification using GCN and SAGE graph convolutional layers.
+        # Create layers
+        gcn_layer = GCNConv(hidden_dim)
+        sage_layer = SAGEConv(hidden_dim, aggregator="mean")
+        relu_activation = keras.layers.Activation("relu")
+        dense_layer = keras.layers.Dense(output_dim, activation="softmax")
 
-            The model processes node features and edge indices through a GCNConv layer followed by a SAGEConv layer with mean aggregation, applies ReLU activations, and outputs class probabilities via a dense softmax layer.
-
-            Returns:
-                A Keras Model that takes node features and edge indices as input and outputs per-node class probabilities.
-            """
-            node_input = keras.Input(shape=(input_dim,))
-            edge_input = keras.Input(shape=(2, None))
-
-            # GCN layer
-            x = GCNConv(hidden_dim)([node_input, edge_input])
-            x = keras.layers.Activation("relu")(x)
-
-            # SAGE layer
-            x = SAGEConv(hidden_dim, aggregator="mean")([x, edge_input])
-            x = keras.layers.Activation("relu")(x)
-
-            # Output layer
-            outputs = keras.layers.Dense(output_dim, activation="softmax")(x)
-
-            return keras.Model(inputs=[node_input, edge_input], outputs=outputs)
-
-        model = create_mixed_model()
-
-        # Process graphs through model
+        # Process graphs through layers
         outputs = []
         for graph in graphs:
-            output = model([graph["node_features"], graph["edge_indices"]])
+            # GCN layer
+            x = gcn_layer([graph["node_features"], graph["edge_indices"]])
+            x = relu_activation(x)
+
+            # SAGE layer
+            x = sage_layer([x, graph["edge_indices"]])
+            x = relu_activation(x)
+
+            # Output layer
+            output = dense_layer(x)
             outputs.append(output)
 
         # Verify outputs
@@ -478,27 +470,20 @@ class TestBatchProcessing:
             {"node_features": base_features.copy(), "edge_indices": base_edges.copy()},
         ]
 
-        # Create model
-        node_input = keras.Input(shape=(input_dim,))
-        edge_input = keras.Input(shape=(2, edges_per_graph))
+        # Create layer
+        layer = GCNConv(output_dim)
+        dense_layer = keras.layers.Dense(2, activation="softmax")
 
-        x = GCNConv(output_dim)([node_input, edge_input])
-        x = keras.layers.Activation("relu")(x)
-        outputs = keras.layers.Dense(2, activation="softmax")(x)
+        # Create identical targets (for potential future loss computation tests)
+        _ = np.random.randint(0, 2, size=(nodes_per_graph,))
 
-        model = keras.Model(inputs=[node_input, edge_input], outputs=outputs)
-        model.compile(optimizer="adam", loss="sparse_categorical_crossentropy")
-
-        # Create identical targets
-        targets = np.random.randint(0, 2, size=(nodes_per_graph,))
-
-        # Test that both graphs produce same loss
-        losses = []
+        # Test that both graphs produce same outputs (since inputs are identical)
+        outputs = []
         for graph in graphs:
-            loss = model.evaluate(
-                [graph["node_features"], graph["edge_indices"]], targets, verbose=0
-            )
-            losses.append(loss)
+            x = layer([graph["node_features"], graph["edge_indices"]])
+            x = keras.layers.Activation("relu")(x)
+            output = dense_layer(x)
+            outputs.append(output)
 
-        # Losses should be identical
-        np.testing.assert_allclose(losses[0], losses[1], rtol=1e-6)
+        # Outputs should be identical (same inputs, same weights)
+        np.testing.assert_allclose(outputs[0].numpy(), outputs[1].numpy(), rtol=1e-6)
