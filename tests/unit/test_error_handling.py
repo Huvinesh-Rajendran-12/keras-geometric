@@ -22,7 +22,9 @@ class TestErrorHandling:
     """Test error handling and edge cases for all layers."""
 
     def test_invalid_aggregator_names(self):
-        """Test that invalid aggregator names raise appropriate errors."""
+        """
+        Verifies that passing invalid aggregator names to MessagePassing, GINConv, and SAGEConv raises a ValueError with an appropriate message.
+        """
         invalid_aggregators = ["invalid", "median", "variance", ""]
 
         for invalid_agg in invalid_aggregators:
@@ -36,7 +38,12 @@ class TestErrorHandling:
                 SAGEConv(output_dim=16, aggregator=invalid_agg)
 
     def test_invalid_input_shapes(self):
-        """Test handling of invalid input shapes."""
+        """
+        Tests that GCNConv raises appropriate errors when given inputs with invalid shapes.
+        
+        Verifies that missing required inputs or incorrectly shaped edge indices result in
+        ValueError or IndexError as expected.
+        """
         layer = GCNConv(output_dim=16)
 
         # Wrong number of inputs
@@ -52,7 +59,11 @@ class TestErrorHandling:
             layer([node_features, invalid_edges])
 
     def test_mismatched_dimensions(self):
-        """Test handling of mismatched tensor dimensions."""
+        """
+        Tests that GCNConv produces correct output shape when node features and edge indices reference different numbers of nodes.
+        
+        Verifies that the layer handles cases where some nodes are not referenced by any edge without raising errors.
+        """
         layer = GCNConv(output_dim=16)
 
         # Node features and edge indices with mismatched batch dimensions
@@ -66,7 +77,9 @@ class TestErrorHandling:
         assert output.shape == (10, 16)
 
     def test_out_of_bounds_edge_indices(self):
-        """Test handling of edge indices that reference non-existent nodes."""
+        """
+        Tests that GCNConv raises an error when edge indices reference nodes outside the valid range.
+        """
         layer = GCNConv(output_dim=16)
 
         node_features = np.random.randn(10, 8).astype(np.float32)
@@ -81,7 +94,11 @@ class TestErrorHandling:
             layer([node_features, invalid_edges])
 
     def test_negative_edge_indices(self):
-        """Test handling of negative edge indices."""
+        """
+        Tests that GCNConv handles negative edge indices without crashing.
+        
+        Verifies that the layer either produces output of the expected shape or raises an error when provided with edge indices containing negative values.
+        """
         layer = GCNConv(output_dim=16)
 
         node_features = np.random.randn(10, 8).astype(np.float32)
@@ -99,7 +116,11 @@ class TestErrorHandling:
             pass
 
     def test_empty_inputs(self):
-        """Test handling of empty tensors."""
+        """
+        Tests that GCNConv correctly handles empty node features and edge indices.
+        
+        Verifies that the output shape is (0, output_dim) when provided with empty inputs.
+        """
         layer = GCNConv(output_dim=16)
 
         # Empty node features
@@ -110,7 +131,11 @@ class TestErrorHandling:
         assert output.shape == (0, 16)
 
     def test_single_node_graph(self):
-        """Test handling of graphs with single nodes."""
+        """
+        Tests that GCNConv correctly processes a graph with a single node and no edges.
+        
+        Verifies that the output shape matches the single node and output dimension, and that all output values are finite.
+        """
         layer = GCNConv(output_dim=16)
 
         # Single node, no edges
@@ -123,7 +148,9 @@ class TestErrorHandling:
         assert np.all(np.isfinite(output.numpy()))
 
     def test_self_loops_handling(self):
-        """Test handling of self-loops in graphs."""
+        """
+        Tests that GCNConv correctly processes graphs containing self-loops, ensuring output shape matches the number of nodes and contains no NaN values.
+        """
         layer = GCNConv(output_dim=16)
 
         node_features = np.random.randn(5, 8).astype(np.float32)
@@ -142,7 +169,11 @@ class TestErrorHandling:
         assert not np.any(np.isnan(output.numpy()))
 
     def test_duplicate_edges_handling(self):
-        """Test handling of duplicate edges."""
+        """
+        Tests that GCNConv produces valid outputs when the input graph contains duplicate edges.
+        
+        Verifies that the output shape matches the number of nodes and output dimension, and that no NaN values are present in the result.
+        """
         layer = GCNConv(output_dim=16)
 
         node_features = np.random.randn(4, 8).astype(np.float32)
@@ -161,7 +192,9 @@ class TestErrorHandling:
         assert not np.any(np.isnan(output.numpy()))
 
     def test_invalid_output_dimensions(self):
-        """Test handling of invalid output dimensions."""
+        """
+        Tests that GCNConv can be created with a minimal output dimension and produces output of the expected shape.
+        """
         # Just test that we can create layers with various dimensions
         # Error handling may vary by backend and Keras version
         layer = GCNConv(output_dim=1)  # Very small but valid
@@ -172,7 +205,11 @@ class TestErrorHandling:
         assert output.shape == (5, 1)
 
     def test_invalid_heads_for_attention(self):
-        """Test various attention head configurations."""
+        """
+        Tests that GATv2Conv produces correct output shape when initialized with a single attention head.
+        
+        Verifies that the layer handles the minimum valid number of attention heads and outputs the expected shape.
+        """
         # Test with minimum valid heads
         layer = GATv2Conv(output_dim=16, heads=1)
 
@@ -182,7 +219,11 @@ class TestErrorHandling:
         assert output.shape == (5, 16)
 
     def test_numerical_edge_cases(self):
-        """Test numerical edge cases."""
+        """
+        Tests GCNConv layer behavior with NaN and infinite values in node features.
+        
+        Verifies that the output contains NaN or infinite values when the corresponding input features contain NaN or inf, ensuring numerical edge cases are handled as expected.
+        """
         layer = GCNConv(output_dim=16)
 
         node_features = np.random.randn(10, 8).astype(np.float32)
@@ -205,7 +246,11 @@ class TestErrorHandling:
         assert np.any(np.isinf(output.numpy()))
 
     def test_very_large_numbers(self):
-        """Test handling of very large numbers."""
+        """
+        Tests that GCNConv produces finite outputs when given very large input feature values.
+        
+        Verifies that the output shape matches the number of nodes and output dimension, and that all output values are finite despite large input magnitudes.
+        """
         layer = GCNConv(output_dim=16)
 
         node_features = np.ones((10, 8), dtype=np.float32) * 1e10
@@ -216,7 +261,9 @@ class TestErrorHandling:
         assert np.all(np.isfinite(output.numpy()))  # Should remain finite
 
     def test_very_small_numbers(self):
-        """Test handling of very small numbers."""
+        """
+        Tests that GCNConv produces finite outputs when input node features contain very small values.
+        """
         layer = GCNConv(output_dim=16)
 
         node_features = np.ones((10, 8), dtype=np.float32) * 1e-10
@@ -227,7 +274,9 @@ class TestErrorHandling:
         assert np.all(np.isfinite(output.numpy()))
 
     def test_message_passing_invalid_inputs(self):
-        """Test MessagePassing base class with invalid inputs."""
+        """
+        Tests that the MessagePassing base class raises ValueError when called with invalid input formats, such as a string, an empty list, or missing edge indices.
+        """
         mp = MessagePassing(aggregator="mean")
 
         # Test with wrong input format
@@ -241,7 +290,11 @@ class TestErrorHandling:
             mp.call([np.random.randn(10, 8)])  # Missing edge_index
 
     def test_gin_conv_epsilon_edge_cases(self):
-        """Test GINConv epsilon parameter edge cases."""
+        """
+        Tests GINConv with a large epsilon initialization parameter to ensure numerical stability.
+        
+        Verifies that the layer produces output of the expected shape and that the output contains no NaN values when using a large value for the epsilon parameter.
+        """
         # GINConv uses 'eps_init' parameter
         layer = GINConv(output_dim=16, eps_init=1e6)
 
@@ -253,7 +306,9 @@ class TestErrorHandling:
         assert not np.any(np.isnan(output.numpy()))
 
     def test_sage_conv_pooling_without_mlp(self):
-        """Test SAGEConv pooling aggregator error cases."""
+        """
+        Tests that SAGEConv with the "pooling" aggregator correctly creates its own MLP and produces output of the expected shape.
+        """
         # This should work - pooling aggregator should create its own MLP
         layer = SAGEConv(output_dim=16, aggregator="pooling")
 
@@ -264,7 +319,11 @@ class TestErrorHandling:
         assert output.shape == (10, 16)
 
     def test_layer_reuse(self):
-        """Test that layers can be reused with different inputs."""
+        """
+        Verifies that a GCNConv layer instance can be reused with inputs of different shapes.
+        
+        Ensures that the layer produces outputs with correct shapes when called multiple times with varying node and edge counts.
+        """
         layer = GCNConv(output_dim=16)
 
         # First input
@@ -283,7 +342,11 @@ class TestErrorHandling:
         assert output_2.shape == (15, 16)
 
     def test_edge_attr_dimension_mismatch(self):
-        """Test edge attribute dimension mismatches."""
+        """
+        Tests GCNConv behavior when edge attribute dimensions do not match the number of edges.
+        
+        Verifies that the layer either raises an error or produces output of the correct shape when provided edge attributes with a mismatched number of rows relative to the edge indices.
+        """
         layer = GCNConv(output_dim=16)
 
         node_features = np.random.randn(10, 8).astype(np.float32)
@@ -303,7 +366,11 @@ class TestErrorHandling:
             pass
 
     def test_mixed_dtypes(self):
-        """Test handling of mixed data types."""
+        """
+        Tests that GCNConv correctly processes inputs where node features are float64 and edge indices are int64.
+        
+        Verifies that the layer produces an output of the expected shape when given mixed data types.
+        """
         layer = GCNConv(output_dim=16)
 
         # Node features as float64, edge indices as int64
@@ -314,7 +381,11 @@ class TestErrorHandling:
         assert output.shape == (10, 16)
 
     def test_zero_input_features(self):
-        """Test with all-zero input features."""
+        """
+        Verifies that GCNConv produces finite outputs when given all-zero input features and bias enabled.
+        
+        Ensures the output shape matches the expected dimensions and contains no NaN or infinite values.
+        """
         layer = GCNConv(output_dim=16, use_bias=True)
 
         zero_features = np.zeros((10, 8), dtype=np.float32)
