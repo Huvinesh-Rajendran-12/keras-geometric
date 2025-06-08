@@ -301,36 +301,40 @@ class TestModelIntegration:
 
     def test_model_serialization(self, sample_graph_data):
         """
-        Tests that a Keras model can be serialized and deserialized while preserving structure and predictions.
-
-        Builds a simple functional model, obtains predictions, serializes and recreates the model from its config, sets identical weights, and verifies that predictions remain numerically consistent after deserialization.
+        Tests that a Keras model containing Keras Geometric layers can be serialized and deserialized.
         """
         data = sample_graph_data
         hidden_dim = 8
         output_dim = 4
 
-        # Build model using functional approach without custom layers for now
+        # Build model using functional approach with a Keras Geometric layer
         node_input = keras.Input(shape=(data["input_dim"],), name="node_features")
+        edge_input = keras.Input(shape=(2,), name="edge_indices")
 
-        # Use dense layer to test serialization framework
-        x = keras.layers.Dense(hidden_dim, activation="relu")(node_input)
+        # Use a GCNConv layer
+        x = GCNConv(hidden_dim)([node_input, edge_input])
+        x = keras.layers.Activation("relu")(x)
         outputs = keras.layers.Dense(output_dim)(x)
 
-        model = keras.Model(inputs=node_input, outputs=outputs)
+        model = keras.Model(inputs=[node_input, edge_input], outputs=outputs)
 
         # Get predictions before serialization
-        pred_before = model(data["node_features"])
+        pred_before = model([data["node_features"], data["edge_indices"].T])
 
         # Test config serialization/deserialization
         config = model.get_config()
-        model_from_config = keras.Model.from_config(config)
+        # Need to register custom layers for deserialization
+        custom_objects = {"GCNConv": GCNConv}
+        model_from_config = keras.Model.from_config(
+            config, custom_objects=custom_objects
+        )
 
         # Verify the models have the same structure
         assert len(model.layers) == len(model_from_config.layers)
 
         # Set same weights and test predictions
         model_from_config.set_weights(model.get_weights())
-        pred_after = model_from_config(data["node_features"])
+        pred_after = model_from_config([data["node_features"], data["edge_indices"].T])
 
         np.testing.assert_allclose(
             keras.ops.convert_to_numpy(pred_before),
