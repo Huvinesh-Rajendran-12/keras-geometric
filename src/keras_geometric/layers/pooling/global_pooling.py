@@ -63,9 +63,9 @@ class GlobalPooling(layers.Layer):
 
         self.pooling = pooling
 
-    def call(
+    def call(  # pyrefly: ignore  # bad-override
         self, inputs: Any, **kwargs: Any
-    ) -> Any:  # pyrefly: ignore  # bad-override
+    ) -> Any:
         """
         Applies global pooling to node features to produce a graph-level representation.
 

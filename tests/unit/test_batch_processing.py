@@ -303,9 +303,9 @@ class TestBatchProcessing:
             """
             process = psutil.Process()  # Uses current process by default
             return (
-                process.memory_info().rss
+                process.memory_info().rss  # pyrefly: ignore  # missing-argument
                 / 1024
-                / 1024  # pyrefly: ignore  # missing-argument
+                / 1024
             )
 
         num_graphs = 10
