@@ -27,12 +27,12 @@ def create_sample_graph(
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates a sample graph with random node features and edge indices.
-    
+
     Args:
         num_nodes: Number of nodes in the graph.
         num_features: Number of features per node.
         num_edges: Number of edges in the graph.
-    
+
     Returns:
         A tuple containing:
             - node_features: NumPy array of shape (num_nodes, num_features) with random values.
@@ -50,7 +50,6 @@ def create_sample_graph(
 def demo_global_pooling() -> None:
     """
     Demonstrates the use of GlobalPooling with mean, max, and sum aggregation methods.
-    
     Creates a sample graph, applies each pooling method to the node features, and prints the resulting graph-level representation shapes.
     """
     print("=" * 60)
@@ -82,7 +81,7 @@ def demo_global_pooling() -> None:
 def demo_attention_pooling() -> None:
     """
     Demonstrates attention-based pooling methods on a sample graph.
-    
+
     Creates a graph with random node features, applies AttentionPooling and Set2Set pooling layers, and prints the resulting graph-level representation shapes.
     """
     print("=" * 60)
@@ -113,7 +112,7 @@ def demo_attention_pooling() -> None:
 def demo_batch_pooling() -> None:
     """
     Demonstrates batch global pooling over multiple graphs with varying node counts.
-    
+
     Creates a batch of graphs with different numbers of nodes, assigns batch indices, and applies mean pooling to obtain a fixed-size representation for each graph in the batch. Prints input shapes and resulting pooled representations.
     """
     print("=" * 60)
@@ -159,7 +158,7 @@ def demo_batch_pooling() -> None:
 def demo_graph_classification_pipeline() -> None:
     """
     Demonstrates a full graph classification pipeline using GCN layers, attention-based pooling, and a dense classification head.
-    
+
     Creates a sample graph, applies two GCNConv layers with ReLU activations for node embedding, pools node features into a graph-level representation using AttentionPooling, and classifies the graph with a softmax output layer. Prints intermediate tensor shapes and verifies output probabilities.
     """
     print("=" * 60)
@@ -217,7 +216,7 @@ def demo_graph_classification_pipeline() -> None:
 def demo_different_pooling_comparison() -> None:
     """
     Compares multiple graph pooling methods on the same graph and prints output statistics.
-    
+
     Creates a sample graph, applies a GCN layer for node embeddings, and evaluates various pooling techniques—including global mean, max, sum, attention pooling, and Set2Set—on the resulting embeddings. Prints the input and output shapes for each pooling method and summarizes the mean and standard deviation of each pooled output.
     """
     print("=" * 60)
@@ -269,7 +268,7 @@ def demo_different_pooling_comparison() -> None:
 def main() -> None:
     """
     Runs all graph pooling demonstration functions sequentially.
-    
+
     Prints introductory and completion messages, and executes each demo to showcase different graph pooling techniques using Keras Geometric.
     """
     print("KERAS GEOMETRIC POOLING EXAMPLES")

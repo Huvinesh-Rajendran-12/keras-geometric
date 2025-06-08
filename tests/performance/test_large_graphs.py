@@ -25,7 +25,6 @@ pytestmark = [pytest.mark.performance, pytest.mark.slow]
 def get_memory_usage() -> float:
     """
     Returns the current process memory usage in megabytes.
-    
     Returns:
         The resident set size (RSS) of the current process in MB.
     """
@@ -38,7 +37,7 @@ def create_large_graph(
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates a random graph with the specified number of nodes and average degree.
-    
+
     The function returns node features as a float32 NumPy array of shape (num_nodes, 64) and edge indices as an int32 NumPy array of shape (2, num_edges), where num_edges = num_nodes * avg_degree.
     """
     num_edges = num_nodes * avg_degree
@@ -81,7 +80,7 @@ class TestLargeGraphPerformance:
     def test_gcn_large_graph_performance(self):
         """
         Evaluates the forward pass performance of a GCNConv layer on a large graph with 10,000 nodes.
-        
+
         Asserts that the output shape is correct, contains no NaN values, the forward pass completes in under 5 seconds, and memory usage increase remains below 2000 MB.
         """
         num_nodes = 10000
@@ -114,7 +113,7 @@ class TestLargeGraphPerformance:
     def test_gatv2_large_graph_performance(self):
         """
         Evaluates the performance of the GATv2Conv layer on a large graph with 5,000 nodes.
-        
+
         Measures the forward pass execution time and memory usage, asserting that the output shape is correct, contains no NaN values, the forward pass completes in under 10 seconds, and memory usage increase remains below 3,000 MB.
         """
         num_nodes = 5000  # Smaller due to attention complexity
@@ -149,7 +148,7 @@ class TestLargeGraphPerformance:
     def test_sage_large_graph_aggregators(self, aggregator: str):
         """
         Evaluates the performance of the SAGEConv layer with a specified aggregator on a large graph.
-        
+
         Runs a forward pass of SAGEConv using the given aggregator on an 8,000-node graph, verifying output shape, absence of NaNs, and that the forward pass completes in under 8 seconds.
         """
         num_nodes = 8000
@@ -178,7 +177,7 @@ class TestLargeGraphPerformance:
     def test_memory_scaling_by_nodes(self):
         """
         Evaluates memory usage scaling as the number of nodes increases in a GCN layer.
-        
+
         Runs the GCNConv layer on graphs with varying node counts and measures memory usage before and after the forward pass. Asserts that memory usage per node does not increase more than threefold between the smallest and largest graph, indicating reasonable scaling behavior.
         """
         output_dim = 32
@@ -215,7 +214,7 @@ class TestLargeGraphPerformance:
     def test_memory_scaling_by_edges(self):
         """
         Evaluates memory usage scaling with increasing edge density in a GCN layer.
-        
+
         Creates graphs with a fixed number of nodes and varying average degrees, measures memory usage before and after a forward pass through a GCNConv layer, and asserts that memory usage for the densest graph does not exceed five times that of the sparsest.
         """
         num_nodes = 2000
@@ -250,7 +249,7 @@ class TestLargeGraphPerformance:
     def test_multilayer_large_graph_performance(self):
         """
         Evaluates the forward pass performance of a three-layer GCN model on a large graph.
-        
+
         Creates a graph with 6,000 nodes, constructs a model with three stacked GCNConv layers, and measures the total forward pass time. Asserts that the output shape is correct, contains no NaNs, and that the forward pass completes in under 15 seconds.
         """
         num_nodes = 6000
@@ -285,7 +284,7 @@ class TestLargeGraphPerformance:
     def test_batch_processing_simulation(self):
         """
         Tests the performance of processing multiple small graphs sequentially to simulate batch processing.
-        
+
         Creates and processes 10 small graphs using a GCNConv layer with ReLU activation, measuring total and average processing time. Verifies output shapes, absence of NaNs, and asserts that the average processing time per graph is under 1 second.
         """
         num_graphs = 10
@@ -328,7 +327,7 @@ class TestLargeGraphPerformance:
     def test_gradient_computation_large_graph(self):
         """
         Measures the training time for one epoch of gradient computation on a large graph using a Keras model with a GCN layer.
-        
+
         Asserts that the gradient computation completes within 20 seconds for a graph with 5,000 nodes and 10 output classes.
         """
         num_nodes = 5000
@@ -366,7 +365,7 @@ class TestLargeGraphPerformance:
     def test_very_sparse_graph_performance(self):
         """
         Evaluates the forward pass performance of a GCN layer on a very sparse large graph.
-        
+
         Creates a graph with 20,000 nodes and low average degree, runs a GCN layer, and asserts that the output shape is correct and the forward pass completes in under 3 seconds.
         """
         num_nodes = 20000
@@ -394,7 +393,7 @@ class TestLargeGraphPerformance:
     def test_dense_graph_performance(self):
         """
         Evaluates the forward pass performance of a GCN layer on a dense graph.
-        
+
         Creates a graph with 1,000 nodes and high average degree, runs a GCNConv layer, and asserts that the output shape is correct and the forward pass completes in under 8 seconds.
         """
         num_nodes = 1000

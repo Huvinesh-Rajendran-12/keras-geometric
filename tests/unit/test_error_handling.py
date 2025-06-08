@@ -40,7 +40,7 @@ class TestErrorHandling:
     def test_invalid_input_shapes(self):
         """
         Tests that GCNConv raises appropriate errors when given inputs with invalid shapes.
-        
+
         Verifies that missing required inputs or incorrectly shaped edge indices result in
         ValueError or IndexError as expected.
         """
@@ -61,7 +61,7 @@ class TestErrorHandling:
     def test_mismatched_dimensions(self):
         """
         Tests that GCNConv produces correct output shape when node features and edge indices reference different numbers of nodes.
-        
+
         Verifies that the layer handles cases where some nodes are not referenced by any edge without raising errors.
         """
         layer = GCNConv(output_dim=16)
@@ -96,7 +96,7 @@ class TestErrorHandling:
     def test_negative_edge_indices(self):
         """
         Tests that GCNConv handles negative edge indices without crashing.
-        
+
         Verifies that the layer either produces output of the expected shape or raises an error when provided with edge indices containing negative values.
         """
         layer = GCNConv(output_dim=16)
@@ -118,7 +118,7 @@ class TestErrorHandling:
     def test_empty_inputs(self):
         """
         Tests that GCNConv correctly handles empty node features and edge indices.
-        
+
         Verifies that the output shape is (0, output_dim) when provided with empty inputs.
         """
         layer = GCNConv(output_dim=16)
@@ -133,7 +133,7 @@ class TestErrorHandling:
     def test_single_node_graph(self):
         """
         Tests that GCNConv correctly processes a graph with a single node and no edges.
-        
+
         Verifies that the output shape matches the single node and output dimension, and that all output values are finite.
         """
         layer = GCNConv(output_dim=16)
@@ -171,7 +171,7 @@ class TestErrorHandling:
     def test_duplicate_edges_handling(self):
         """
         Tests that GCNConv produces valid outputs when the input graph contains duplicate edges.
-        
+
         Verifies that the output shape matches the number of nodes and output dimension, and that no NaN values are present in the result.
         """
         layer = GCNConv(output_dim=16)
@@ -207,7 +207,7 @@ class TestErrorHandling:
     def test_invalid_heads_for_attention(self):
         """
         Tests that GATv2Conv produces correct output shape when initialized with a single attention head.
-        
+
         Verifies that the layer handles the minimum valid number of attention heads and outputs the expected shape.
         """
         # Test with minimum valid heads
@@ -221,7 +221,7 @@ class TestErrorHandling:
     def test_numerical_edge_cases(self):
         """
         Tests GCNConv layer behavior with NaN and infinite values in node features.
-        
+
         Verifies that the output contains NaN or infinite values when the corresponding input features contain NaN or inf, ensuring numerical edge cases are handled as expected.
         """
         layer = GCNConv(output_dim=16)
@@ -248,7 +248,7 @@ class TestErrorHandling:
     def test_very_large_numbers(self):
         """
         Tests that GCNConv produces finite outputs when given very large input feature values.
-        
+
         Verifies that the output shape matches the number of nodes and output dimension, and that all output values are finite despite large input magnitudes.
         """
         layer = GCNConv(output_dim=16)
@@ -292,7 +292,7 @@ class TestErrorHandling:
     def test_gin_conv_epsilon_edge_cases(self):
         """
         Tests GINConv with a large epsilon initialization parameter to ensure numerical stability.
-        
+
         Verifies that the layer produces output of the expected shape and that the output contains no NaN values when using a large value for the epsilon parameter.
         """
         # GINConv uses 'eps_init' parameter
@@ -321,7 +321,7 @@ class TestErrorHandling:
     def test_layer_reuse(self):
         """
         Verifies that a GCNConv layer instance can be reused with inputs of different shapes.
-        
+
         Ensures that the layer produces outputs with correct shapes when called multiple times with varying node and edge counts.
         """
         layer = GCNConv(output_dim=16)
@@ -344,7 +344,7 @@ class TestErrorHandling:
     def test_edge_attr_dimension_mismatch(self):
         """
         Tests GCNConv behavior when edge attribute dimensions do not match the number of edges.
-        
+
         Verifies that the layer either raises an error or produces output of the correct shape when provided edge attributes with a mismatched number of rows relative to the edge indices.
         """
         layer = GCNConv(output_dim=16)
@@ -368,7 +368,7 @@ class TestErrorHandling:
     def test_mixed_dtypes(self):
         """
         Tests that GCNConv correctly processes inputs where node features are float64 and edge indices are int64.
-        
+
         Verifies that the layer produces an output of the expected shape when given mixed data types.
         """
         layer = GCNConv(output_dim=16)
@@ -383,7 +383,7 @@ class TestErrorHandling:
     def test_zero_input_features(self):
         """
         Verifies that GCNConv produces finite outputs when given all-zero input features and bias enabled.
-        
+
         Ensures the output shape matches the expected dimensions and contains no NaN or infinite values.
         """
         layer = GCNConv(output_dim=16, use_bias=True)
