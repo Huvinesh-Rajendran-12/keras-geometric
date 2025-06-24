@@ -62,7 +62,7 @@ Each tutorial includes:
 
 Found an issue or have suggestions? Please let us know:
 
-- Open an issue on [GitHub](https://github.com/your-repo/keras-geometric)
+- Open an issue on [GitHub](https://github.com/Huvinesh-Rajendran-12/keras-geometric)
 - Suggest improvements to the documentation
 - Share your own examples and use cases
 

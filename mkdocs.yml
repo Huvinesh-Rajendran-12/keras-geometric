@@ -1,0 +1,96 @@
+site_name: Keras Geometric
+site_description: A Graph Neural Network Library for Keras
+site_author: Huvinesh Rajendran
+site_url: https://huvinesh-rajendran-12.github.io/keras-geometric/
+repo_url: https://github.com/Huvinesh-Rajendran-12/keras-geometric
+repo_name: Huvinesh-Rajendran-12/keras-geometric
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            docstring_style: google
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quick Start: quick_start.md
+  - Tutorials:
+      - tutorials/index.md
+      - Node Classification: tutorials/node_classification.md
+      - Graph Classification: tutorials/graph_classification.md
+  - API Reference:
+      - api_reference/index.md
+      - Layers:
+          - MessagePassing: api_reference/layers/message_passing.md
+          - GCNConv: api_reference/layers/gcn_conv.md
+          - GINConv: api_reference/layers/gin_conv.md
+          - GATv2Conv: api_reference/layers/gatv2_conv.md
+          - SAGEConv: api_reference/layers/sage_conv.md
+      - Datasets:
+          - Base Dataset: api_reference/datasets/base.md
+          - Citation Networks: api_reference/datasets/citation.md
+      - Utils:
+          - Graph Data: api_reference/utils/graph_data.md
+          - Aggregators: api_reference/utils/aggregators.md
+  - Examples:
+      - examples/index.md
+  - Development:
+      - Contributing: contributing.md
+      - CI/CD Guide: CI_CD_GUIDE.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Huvinesh-Rajendran-12/keras-geometric
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/keras-geometric/
+
+extra_css:
+  - stylesheets/extra.css

@@ -1,23 +1,46 @@
+# See https://pre-commit.com for more information
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-added-large-files
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: debug-statements
+      - id: mixed-line-ending
+        args: ['--fix=lf']
 
-# Just ruff - handles 90% of what you need, super fast
--   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+  # Python code formatting with Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
     hooks:
-    -   id: ruff
-        args: [--fix]
-    -   id: ruff-format
+      # Run the formatter first
+      - id: ruff-format
+      # Then run the linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
 
--   repo: local
+  # Type checking with pyrefly
+  - repo: local
     hooks:
-    -   id: import-test
+      - id: pyrefly
+        name: pyrefly
+        entry: pyrefly check
+        language: system
+        types: [python]
+        pass_filenames: false
+        # Only run on Python source files, not tests
+        files: ^src/.*\.py$
+
+  # Import validation
+  - repo: local
+    hooks:
+      - id: import-test
         name: import-test
         entry: python -c "import keras_geometric; print('✅ All imports working')"
         language: system

@@ -37,14 +37,14 @@ If you use Keras Geometric in your research, please cite:
 
 ```
 @software{keras_geometric,
-  author = {Author, A.},
+  author = {Rajendran, Huvinesh},
   title = {Keras Geometric: A Graph Neural Network Library for Keras},
-  url = {https://github.com/author/keras-geometric},
+  url = {https://github.com/Huvinesh-Rajendran-12/keras-geometric},
   version = {0.1.0},
-  year = {2023},
+  year = {2024},
 }
 ```
 
 ## License
 
-Keras Geometric is released under the MIT License. See the [LICENSE](https://github.com/author/keras-geometric/blob/main/LICENSE) file for details.
+Keras Geometric is released under the MIT License. See the [LICENSE](https://github.com/Huvinesh-Rajendran-12/keras-geometric/blob/main/LICENSE) file for details.

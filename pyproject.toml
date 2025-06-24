@@ -28,17 +28,26 @@ classifiers = [ # Find classifiers at https://pypi.org/classifiers/
 # --- Dependencies ---
 # Keep runtime dependencies minimal - only what's needed to use the package
 dependencies = [
-    "jax[cpu]>=0.4.30",
-    "jaxlib>=0.4.30",
     "keras>=3.0",
     "numpy>=1.24.0", # Compatible with both numpy 1.x and 2.x
-    "pytest>=8.3.5",
-    "tensorflow>=2.19.0",
-    "torch>=2.6.0",
 ]
 
 # --- Optional Dependencies ---
 [project.optional-dependencies]
+# Backend dependencies - choose one or more as needed
+tensorflow = [
+    "tensorflow>=2.19.0",
+]
+
+pytorch = [
+    "torch>=2.6.0",
+]
+
+jax = [
+    "jax[cpu]>=0.4.30",
+    "jaxlib>=0.4.30",
+]
+
 # Dataset dependencies (only needed if using specific datasets)
 datasets = [
     "scipy>=1.11.0", # Required for Cora dataset and other scientific datasets
@@ -47,11 +56,16 @@ datasets = [
 # Testing dependencies
 test = [
     "pytest>=8.3.5",
-    "torch>=2.6.0",              # For numerical comparison tests
-    "torch-geometric>=2.6.1",    # For numerical comparison tests
-    "tensorflow>=2.17",          # For backend testing
+    "pytest-cov>=5.0.0",         # For coverage reporting
     "psutil>=5.9.0",             # For performance tests memory monitoring
     "keras-geometric[datasets]", # Include dataset deps for testing
+    "keras-geometric[tensorflow,pytorch,jax]", # Include all backends for testing
+]
+
+# For PyTorch numerical comparison tests
+test-pytorch = [
+    "keras-geometric[test,pytorch]",
+    "torch-geometric>=2.6.1",    # For numerical comparison tests
 ]
 
 # MacOS Metal support
@@ -59,9 +73,17 @@ macos-metal = [
     "tensorflow-metal>=1.2.0; platform_system=='Darwin' and platform_machine=='arm64'",
 ]
 
+# Documentation dependencies
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.4.0",
+    "mkdocstrings[python]>=0.24.0",
+    "mkdocs-jupyter>=0.24.0",
+]
+
 # Development dependencies
 dev = [
-    "keras-geometric[test]", # Includes all test deps
+    "keras-geometric[test,docs]", # Includes all test and docs deps
     "pre-commit>=4.2.0",     # Code quality hooks
     "ruff>=0.8.0",           # Fast Python linter/formatter
     "pyrefly",               # Type checking
@@ -73,7 +95,7 @@ dev = [
 ]
 
 # All optional dependencies combined (for convenience)
-all = ["keras-geometric[datasets,test,macos-metal]"]
+all = ["keras-geometric[datasets,test,test-pytorch,macos-metal]"]
 
 # --- Project URLs ---
 [project.urls]
@@ -141,6 +163,33 @@ known-first-party = ["keras_geometric"]
 [tool.pyright]
 venv = ".venv"
 
+# --- Mypy Configuration (Alternative Type Checker) ---
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = false  # Too strict for ML libraries
+check_untyped_defs = true
+no_implicit_reexport = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "tensorflow.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "torch.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jax.*"
+ignore_missing_imports = true
+
 # --- Pytest Configuration ---
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -149,7 +198,11 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--strict-config",
-    "--disable-warnings"
+    "--disable-warnings",
+    "--cov=keras_geometric",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml"
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -165,4 +218,24 @@ filterwarnings = [
     "ignore::PendingDeprecationWarning",
     "ignore::FutureWarning",
     "ignore::UserWarning:tensorflow.*"
+]
+
+# --- Coverage Configuration ---
+[tool.coverage.run]
+source = ["src/keras_geometric"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
 ]
