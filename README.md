@@ -2,6 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/keras-geometric.svg)](https://badge.fury.io/py/keras-geometric)
 [![Build Status](https://github.com/Huvinesh-Rajendran-12/keras-geometric/workflows/Keras-Geometric%20CI/CD/badge.svg)](https://github.com/Huvinesh-Rajendran-12/keras-geometric/actions)
+[![Coverage](https://codecov.io/gh/Huvinesh-Rajendran-12/keras-geometric/branch/main/graph/badge.svg)](https://codecov.io/gh/Huvinesh-Rajendran-12/keras-geometric)
 [![Python Versions](https://img.shields.io/pypi/pyversions/keras-geometric.svg)](https://pypi.org/project/keras-geometric/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -28,11 +29,10 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
 1.  **Prerequisites:**
 
     - Python 3.9 or later.
-    - Keras 3 (version 3.9.0 or later). You can install/update it using pip:
+    - Keras 3 (version 3.0 or later). You can install/update it using pip:
       ```sh
-      pip install --upgrade keras>=3.9.0
+      pip install --upgrade keras>=3.0
       ```
-    - A Keras backend (TensorFlow, PyTorch, or JAX). Install your preferred backend if you haven't already (e.g., `pip install tensorflow`).
 
 2.  **Install Keras Geometric:**
 
@@ -40,12 +40,18 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
 
     **Option 1: Install from PyPI (Recommended)**
     ```sh
-    # Install the latest stable version
+    # Install the base package (backend-agnostic)
     pip install keras-geometric
 
+    # Install with a specific backend
+    pip install keras-geometric[tensorflow]  # For TensorFlow backend
+    pip install keras-geometric[pytorch]     # For PyTorch backend
+    pip install keras-geometric[jax]         # For JAX backend
+
     # Install with additional features
-    pip install keras-geometric[dev]  # Development dependencies
-    pip install keras-geometric[test] # Testing dependencies
+    pip install keras-geometric[datasets]    # Dataset loading utilities
+    pip install keras-geometric[test]        # Testing dependencies (includes all backends)
+    pip install keras-geometric[dev]         # Development dependencies
     pip install keras-geometric[macos-metal] # Metal acceleration for macOS
     ```
 
@@ -70,6 +76,28 @@ The core philosophy is to offer a flexible and intuitive API, leveraging the pow
 
     # For development mode
     uv pip install -e .
+    ```
+
+3.  **Backend Selection:**
+
+    Keras Geometric works with any Keras 3 backend. To select a backend, set the `KERAS_BACKEND` environment variable before importing Keras:
+
+    ```sh
+    # For TensorFlow backend
+    export KERAS_BACKEND=tensorflow
+
+    # For PyTorch backend
+    export KERAS_BACKEND=torch
+
+    # For JAX backend
+    export KERAS_BACKEND=jax
+    ```
+
+    Or programmatically in Python:
+    ```python
+    import os
+    os.environ["KERAS_BACKEND"] = "tensorflow"  # or "torch", "jax"
+    import keras
     ```
 
 ## Core Concepts: Graph Neural Networks & Message Passing
