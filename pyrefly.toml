@@ -18,8 +18,3 @@ bad-return = false         # Complex tensor operations return types
 # These errors are expected in Keras layers due to lazy initialization
 implicitly-defined-attribute = false  # Attributes defined in build() method
 bad-override = false  # Keras method signatures can vary
-
-# Enable these for better type safety
-missing-return-type = true
-missing-argument-type = true
-incompatible-return-type = true
