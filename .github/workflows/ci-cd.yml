@@ -25,7 +25,7 @@ jobs:
       python_changed: ${{ steps.filter.outputs.python == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Calculate changed paths
         uses: dorny/paths-filter@v3
         id: filter
@@ -48,7 +48,7 @@ jobs:
       (github.event_name != 'schedule' && needs.filter.outputs.python_changed == 'true')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with: { python-version: '3.11' }
@@ -92,7 +92,7 @@ jobs:
       (github.event_name != 'schedule' && needs.filter.outputs.python_changed == 'true')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with: { python-version: '3.11' }
@@ -137,7 +137,7 @@ jobs:
         keras-backend: [tensorflow, torch, jax]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -186,7 +186,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -229,7 +229,7 @@ jobs:
       tag_name: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - name: Get Tag Name
         id: tag
